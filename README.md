@@ -1,5 +1,9 @@
 # rpic_isr
 
+**2D2V extension:** `rpic_isr_2d` evolves `(x,y,vx,vy)` in a periodic square
+with a genuine two-dimensional FFT Poisson solve. The original `rpic_isr`
+executable and 1D results below are retained. See [the 2D model](TWO_DIMENSIONAL.md).
+
 A small **1D1V, unmagnetized, electrostatic electron–ion particle-in-cell model**,
 with a periodic FFT Poisson solver. The observable is the electron-density
 Fourier mode at the monostatic Bragg wavenumber of a **440.2 MHz ISR**.

@@ -253,6 +253,11 @@ fn main() -> Result<()> {
     let length = scales["length_m"].as_f64().unwrap();
     let d = first.dataset("diagnostics/0")?.read_raw::<f64>()?;
     let x = first.dataset("trajectories/0/x_m")?.read_raw::<f32>()?;
+    let dimensions = if first.dataset("trajectories/0/x_m")?.ndim() == 3 {
+        2
+    } else {
+        1
+    };
     let mut trajectories = Figure::new(IntendedUse::Custom {
         width_mm: 170.,
         font_pt: 11.,
@@ -274,7 +279,7 @@ fn main() -> Result<()> {
             if row[0] > 0.001 {
                 break;
             }
-            let value = x[32 * r + j] as f64;
+            let value = x[dimensions * (32 * r + j)] as f64;
             if previous.is_some_and(|p: f64| (value - p).abs() > length / 2.) {
                 points.push([f64::NAN, f64::NAN]);
             }
@@ -289,6 +294,53 @@ fn main() -> Result<()> {
         .push(Label::new(r"Four $\mathrm{O}^{+}$ trajectories", 87., 7.));
     trajectories.save(Path::new(&args[0]).join("trajectories.png"))?;
     trajectories.save(Path::new(&args[0]).join("trajectories.svg"))?;
+    if dimensions == 2 {
+        let mut plane = Figure::new(IntendedUse::Custom {
+            width_mm: 170.,
+            font_pt: 11.,
+        });
+        plane.height_mm = 108.;
+        for (offset, particle, title) in [
+            (0., 16, r"$\mathrm{O}^{+}$ trajectories"),
+            (83., 0, "Electron trajectories"),
+        ] {
+            let mut panel = Panel::new(
+                Rect::new(20. + offset, 19., 61., 61.),
+                Axes::new([0., length], [0., length], "$x$ [m]", "$y$ [m]"),
+            );
+            for (j, color) in [
+                (particle, "#186e9c"),
+                (particle + 1, "#c45128"),
+                (particle + 2, "#437647"),
+            ] {
+                let mut pts = Vec::new();
+                let mut previous: Option<[f64; 2]> = None;
+                for (r, row) in d.as_chunks::<9>().0.iter().enumerate() {
+                    if row[0] > 0.001 {
+                        break;
+                    }
+                    let p = [x[2 * (32 * r + j)] as f64, x[2 * (32 * r + j) + 1] as f64];
+                    if previous.is_some_and(|q| {
+                        (p[0] - q[0]).abs() > length / 2. || (p[1] - q[1]).abs() > length / 2.
+                    }) {
+                        pts.push([f64::NAN, f64::NAN]);
+                    }
+                    pts.push(p);
+                    previous = Some(p);
+                }
+                panel.push(Layer::Line(Line::new(pts, color)));
+            }
+            let axes = panel.axes.as_mut().unwrap();
+            axes.xticks = vec![0., length / 2., length];
+            axes.yticks = axes.xticks.clone();
+            axes.xticklabels = Some(axes.xticks.iter().map(|v| format!("{v:.2}")).collect());
+            axes.yticklabels = axes.xticklabels.clone();
+            plane.panels.push(panel);
+            plane.labels.push(Label::new(title, 50. + offset, 8.));
+        }
+        plane.save(Path::new(&args[0]).join("trajectories_2d.png"))?;
+        plane.save(Path::new(&args[0]).join("trajectories_2d.svg"))?;
+    }
     // Derived scientific data and complete input configurations, not a CSV.
     let combined = hdf5::File::create(Path::new(&args[0]).join("ensemble.h5"))?;
     for (name, v) in [

@@ -1,0 +1,373 @@
+//! Periodic square 2D2V electrostatic PIC. The radar mode is (m,0).
+//! Grid order is y*N+x; each species has N*N*ppc macroparticles.
+use crate::*;
+use rustfft::{Fft, FftPlanner};
+use std::{sync::Arc, time::Instant};
+
+#[derive(Clone, Default)]
+pub struct Particles2 {
+    pub xe: Vec<[f32; 2]>,
+    pub ve: Vec<[f32; 2]>,
+    pub xi: Vec<[f32; 2]>,
+    pub vi: Vec<[f32; 2]>,
+}
+impl Particles2 {
+    pub fn new(c: &Config, s: &Scales, seed: u64) -> Self {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let n = c.cells * c.cells * c.ppc;
+        let mut positions = || {
+            (0..n)
+                .map(|_| {
+                    [
+                        rng.random::<f32>() * s.length as f32,
+                        rng.random::<f32>() * s.length as f32,
+                    ]
+                })
+                .collect()
+        };
+        let xe = positions();
+        let xi = positions();
+        let mut velocities = |std: f64| {
+            let mut v: Vec<[f32; 2]> = (0..n)
+                .map(|_| {
+                    [
+                        StandardNormal.sample(&mut rng),
+                        StandardNormal.sample(&mut rng),
+                    ]
+                })
+                .collect();
+            for d in 0..2 {
+                let mean = v.iter().map(|v| v[d] as f64).sum::<f64>() / n as f64;
+                let variance =
+                    v.iter().map(|v| (v[d] as f64 - mean).powi(2)).sum::<f64>() / n as f64;
+                for v in &mut v {
+                    v[d] = ((v[d] as f64 - mean) * std / variance.sqrt()) as f32;
+                }
+            }
+            v
+        };
+        let ve = velocities(1.);
+        let vi = velocities((c.ti / c.te / s.mass_ratio).sqrt());
+        Self { xe, ve, xi, vi }
+    }
+}
+
+pub fn weights(x: [f32; 2], n: usize, length: f32) -> [(usize, f32); 4] {
+    let u = (x[0] / length * n as f32).rem_euclid(n as f32);
+    let v = (x[1] / length * n as f32).rem_euclid(n as f32);
+    let i = u.floor() as usize % n;
+    let j = v.floor() as usize % n;
+    let a = u - u.floor();
+    let b = v - v.floor();
+    [
+        (j * n + i, (1. - a) * (1. - b)),
+        (j * n + (i + 1) % n, a * (1. - b)),
+        (((j + 1) % n) * n + i, (1. - a) * b),
+        (((j + 1) % n) * n + (i + 1) % n, a * b),
+    ]
+}
+pub fn deposit(x: &[[f32; 2]], grid: &mut [f32], n: usize, length: f32) {
+    grid.fill(0.);
+    let norm = grid.len() as f32 / x.len() as f32;
+    for &x in x {
+        for (j, w) in weights(x, n, length) {
+            grid[j] += norm * w;
+        }
+    }
+}
+pub fn gather(e: &[[f32; 2]], x: [f32; 2], n: usize, length: f32) -> [f32; 2] {
+    let mut out = [0.; 2];
+    for (j, w) in weights(x, n, length) {
+        for d in 0..2 {
+            out[d] += w * e[j][d];
+        }
+    }
+    out
+}
+pub struct Solver2 {
+    n: usize,
+    forward: Arc<dyn Fft<f32>>,
+    inverse: Arc<dyn Fft<f32>>,
+    column: Vec<Complex32>,
+    scratch: Vec<Complex32>,
+    ne: Vec<f32>,
+    ni: Vec<f32>,
+    freq: Vec<Complex32>,
+    ex: Vec<Complex32>,
+    ey: Vec<Complex32>,
+    pub e: Vec<[f32; 2]>,
+    pub charge: f64,
+}
+fn fft2(
+    data: &mut [Complex32],
+    n: usize,
+    fft: &dyn Fft<f32>,
+    col: &mut [Complex32],
+    scratch: &mut [Complex32],
+) {
+    for row in data.chunks_exact_mut(n) {
+        fft.process_with_scratch(row, scratch);
+    }
+    for x in 0..n {
+        for y in 0..n {
+            col[y] = data[y * n + x];
+        }
+        fft.process_with_scratch(col, scratch);
+        for y in 0..n {
+            data[y * n + x] = col[y];
+        }
+    }
+}
+impl Solver2 {
+    pub fn new(n: usize) -> Self {
+        let mut planner = FftPlanner::new();
+        let forward = planner.plan_fft_forward(n);
+        let inverse = planner.plan_fft_inverse(n);
+        let scratch = vec![
+            Complex32::default();
+            forward
+                .get_inplace_scratch_len()
+                .max(inverse.get_inplace_scratch_len())
+        ];
+        Self {
+            n,
+            forward,
+            inverse,
+            column: vec![Complex32::default(); n],
+            scratch,
+            ne: vec![0.; n * n],
+            ni: vec![0.; n * n],
+            freq: vec![Complex32::default(); n * n],
+            ex: vec![Complex32::default(); n * n],
+            ey: vec![Complex32::default(); n * n],
+            e: vec![[0.; 2]; n * n],
+            charge: 0.,
+        }
+    }
+    pub fn poisson(&mut self, rho: &[f32], length: f32) {
+        for (f, &r) in self.freq.iter_mut().zip(rho) {
+            *f = Complex32::new(r, 0.);
+        }
+        fft2(
+            &mut self.freq,
+            self.n,
+            &*self.forward,
+            &mut self.column,
+            &mut self.scratch,
+        );
+        let n = self.n;
+        for y in 0..n {
+            for x in 0..n {
+                let mode = |j: usize| {
+                    if j <= n / 2 {
+                        j as f32
+                    } else {
+                        j as f32 - n as f32
+                    }
+                };
+                let kx = 2. * std::f32::consts::PI * mode(x) / length;
+                let ky = 2. * std::f32::consts::PI * mode(y) / length;
+                let k2 = kx * kx + ky * ky;
+                let f = self.freq[y * n + x];
+                let q = Complex32::new(f.im, -f.re);
+                self.ex[y * n + x] = if k2 == 0. || x == n / 2 {
+                    Complex32::default()
+                } else {
+                    q * (kx / k2)
+                };
+                self.ey[y * n + x] = if k2 == 0. || y == n / 2 {
+                    Complex32::default()
+                } else {
+                    q * (ky / k2)
+                };
+            }
+        }
+        fft2(
+            &mut self.ex,
+            n,
+            &*self.inverse,
+            &mut self.column,
+            &mut self.scratch,
+        );
+        fft2(
+            &mut self.ey,
+            n,
+            &*self.inverse,
+            &mut self.column,
+            &mut self.scratch,
+        );
+        for j in 0..n * n {
+            self.e[j] = [
+                self.ex[j].re / (n * n) as f32,
+                self.ey[j].re / (n * n) as f32,
+            ];
+        }
+    }
+    pub fn fields(&mut self, p: &Particles2, c: &Config, s: &Scales) -> Complex32 {
+        deposit(&p.xe, &mut self.ne, self.n, s.length as f32);
+        deposit(&p.xi, &mut self.ni, self.n, s.length as f32);
+        for (f, &r) in self.freq.iter_mut().zip(&self.ne) {
+            *f = Complex32::new(r, 0.);
+        }
+        fft2(
+            &mut self.freq,
+            self.n,
+            &*self.forward,
+            &mut self.column,
+            &mut self.scratch,
+        );
+        let kd = std::f64::consts::PI * c.bragg_mode as f64 / self.n as f64;
+        let obs = self.freq[c.bragg_mode]
+            * ((p.xe.len() as f64).sqrt() / (self.n * self.n) as f64 / (kd.sin() / kd).powi(2))
+                as f32;
+        for j in 0..self.n * self.n {
+            self.ni[j] -= self.ne[j];
+        }
+        self.charge = self.ni.iter().map(|v| *v as f64).sum::<f64>() / (self.n * self.n) as f64;
+        let rho = std::mem::take(&mut self.ni);
+        self.poisson(&rho, s.length as f32);
+        self.ni = rho;
+        obs
+    }
+}
+pub fn push(p: &mut Particles2, e: &[[f32; 2]], c: &Config, s: &Scales, kick: f32, drift: f32) {
+    for (x, v, qm) in [
+        (&mut p.xe, &mut p.ve, -1.),
+        (&mut p.xi, &mut p.vi, 1. / s.mass_ratio as f32),
+    ] {
+        for (x, v) in x.iter_mut().zip(v) {
+            let field = gather(e, *x, c.cells, s.length as f32);
+            for d in 0..2 {
+                v[d] += kick * qm * field[d];
+                x[d] = (x[d] + drift * v[d]).rem_euclid(s.length as f32);
+            }
+        }
+    }
+}
+pub fn diagnostic2(
+    run: &mut Run,
+    p: &Particles2,
+    e: &[[f32; 2]],
+    c: &Config,
+    s: &Scales,
+    step: usize,
+    charge: f64,
+) {
+    let mut sums = [0.; 5];
+    for (j, x, v, m, q) in [
+        (0, &p.xe, &p.ve, 1., -1.),
+        (1, &p.xi, &p.vi, s.mass_ratio, 1.),
+    ] {
+        let mut mean = [0.; 2];
+        let mut vv = 0.;
+        for (i, (&x, &v)) in x.iter().zip(v).enumerate() {
+            let field = gather(e, x, c.cells, s.length as f32);
+            for d in 0..2 {
+                let vel = v[d] as f64 + 0.5 * c.dt * q / m * field[d] as f64;
+                mean[d] += vel;
+                vv += vel * vel;
+                if i < 16 {
+                    run.trajectory_x.push((x[d] as f64 * s.lambda_de) as f32);
+                    run.trajectory_v.push((vel * s.vte) as f32);
+                }
+            }
+        }
+        for v in &mut mean {
+            *v /= x.len() as f64;
+        }
+        vv /= x.len() as f64;
+        sums[j] = 0.5 * m * vv;
+        // T is per degree of freedom: subtract both species mean velocities.
+        sums[2 + j] = 0.5 * m * c.te * (vv - mean[0] * mean[0] - mean[1] * mean[1]);
+        sums[4] += m * mean[0];
+    }
+    let field = 0.5
+        * e.iter()
+            .map(|v| v[0] as f64 * v[0] as f64 + v[1] as f64 * v[1] as f64)
+            .sum::<f64>()
+        / e.len() as f64;
+    run.diagnostics.extend([
+        step as f64 * s.dt_s,
+        sums[0] + sums[1] + field,
+        sums[0],
+        sums[1],
+        field,
+        sums[2],
+        sums[3],
+        sums[4],
+        charge,
+    ]);
+}
+pub fn simulate(c: &Config, s: &Scales, seed: u64) -> Result<Run> {
+    let timer = Instant::now();
+    let mut p = Particles2::new(c, s, seed);
+    let mut solver = Solver2::new(c.cells);
+    let mut run = Run::default();
+    for step in 0..=s.burn_steps + s.steps {
+        let obs = solver.fields(&p, c, s);
+        if step == 0 {
+            push(&mut p, &solver.e, c, s, -0.5 * c.dt as f32, 0.);
+        }
+        if step >= s.burn_steps && step < s.burn_steps + s.steps {
+            run.voltage.push(obs);
+        }
+        if step % c.diagnostic_stride == 0 || step == s.burn_steps + s.steps {
+            diagnostic2(&mut run, &p, &solver.e, c, s, step, solver.charge);
+        }
+        if step == s.burn_steps + s.steps {
+            break;
+        }
+        push(&mut p, &solver.e, c, s, c.dt as f32, c.dt as f32);
+    }
+    run.elapsed_s = timer.elapsed().as_secs_f64();
+    Ok(run)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn cic_conserves_charge_and_gathers_constant() {
+        let n = 16;
+        let p = vec![[0., 0.], [15.9, 15.8], [16.1, -0.2], [7.2, 3.1]];
+        let mut g = vec![0.; n * n];
+        deposit(&p, &mut g, n, 16.);
+        assert!((g.iter().sum::<f32>() - 256.).abs() < 1e-4);
+        let e = vec![[2., -3.]; n * n];
+        for x in p {
+            let v = gather(&e, x, n, 16.);
+            assert!((v[0] - 2.).abs() < 1e-6 && (v[1] + 3.).abs() < 1e-6);
+        }
+    }
+    #[test]
+    fn oblique_poisson_mode() {
+        let n = 32;
+        let l = 2. * std::f32::consts::PI;
+        let rho: Vec<_> = (0..n * n)
+            .map(|j| {
+                (2. * l * (j % n) as f32 / n as f32 + 3. * l * (j / n) as f32 / n as f32).cos()
+            })
+            .collect();
+        let mut solver = Solver2::new(n);
+        solver.poisson(&rho, l);
+        for (j, e) in solver.e.iter().enumerate() {
+            let sine =
+                (2. * l * (j % n) as f32 / n as f32 + 3. * l * (j / n) as f32 / n as f32).sin();
+            assert!((e[0] - 2. / 13. * sine).abs() < 2e-6);
+            assert!((e[1] - 3. / 13. * sine).abs() < 2e-6);
+        }
+    }
+    #[test]
+    fn maxwellian_has_two_velocity_components() {
+        let c = Config::parse_from(["t", "--cells", "32", "--ppc", "4", "--bragg-mode", "1"]);
+        let s = Scales::new(&c).unwrap();
+        let p = Particles2::new(&c, &s, 17);
+        assert_eq!(p.xe.len(), 4096);
+        for d in 0..2 {
+            let mean = p.ve.iter().map(|v| v[d] as f64).sum::<f64>() / 4096.;
+            let variance = p.ve.iter().map(|v| (v[d] as f64).powi(2)).sum::<f64>() / 4096.;
+            assert!(mean.abs() < 1e-7);
+            assert!((variance - 1.).abs() < 1e-7);
+        }
+    }
+}

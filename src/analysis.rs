@@ -64,9 +64,18 @@ pub fn read(file: &hdf5::File) -> Result<Vec<Realization>> {
                 .map(|row| ((row[j] - base) * factor).abs())
                 .fold(0f64, f64::max)
         };
-        let velocities = file
-            .dataset(&format!("trajectories/{r}/v_m_s"))?
-            .read_raw::<f32>()?;
+        let dataset = file.dataset(&format!("trajectories/{r}/v_m_s"))?;
+        let components = if dataset.ndim() == 3 {
+            dataset.shape()[2]
+        } else {
+            1
+        };
+        // The same line-of-sight (x) velocity statistic in 1D and 2D.
+        let velocities: Vec<_> = dataset
+            .read_raw::<f32>()?
+            .into_iter()
+            .step_by(components)
+            .collect();
         let last = velocities.len() - 32;
         runs.push(Realization {
             seed: c.seed + r as u64,
