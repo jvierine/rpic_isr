@@ -223,6 +223,8 @@ pub struct Run {
     pub diagnostics: Vec<f64>,
     pub trajectory_x: Vec<f32>,
     pub trajectory_v: Vec<f32>,
+    /// 2D-only high-cadence positions: first 2048 steps, 32 particles, x/y.
+    pub fast_trajectory_x: Vec<f32>,
     pub elapsed_s: f64,
 }
 pub fn diagnostic(run: &mut Run, p: &Particles, ef: &[f32], s: &Scales, c: &Config, step: usize) {

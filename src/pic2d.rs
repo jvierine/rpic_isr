@@ -52,19 +52,34 @@ impl Particles2 {
     }
 }
 
-pub fn weights(x: [f32; 2], n: usize, length: f32) -> [(usize, f32); 4] {
+pub fn weights(x: [f32; 2], n: usize, length: f32) -> [(usize, f32); 9] {
     let u = (x[0] / length * n as f32).rem_euclid(n as f32);
     let v = (x[1] / length * n as f32).rem_euclid(n as f32);
-    let i = u.floor() as usize % n;
-    let j = v.floor() as usize % n;
-    let a = u - u.floor();
-    let b = v - v.floor();
-    [
-        (j * n + i, (1. - a) * (1. - b)),
-        (j * n + (i + 1) % n, a * (1. - b)),
-        (((j + 1) % n) * n + i, (1. - a) * b),
-        (((j + 1) % n) * n + (i + 1) % n, a * b),
-    ]
+    let i = (u + 0.5).floor() as isize;
+    let j = (v + 0.5).floor() as isize;
+    let a = u - i as f32;
+    let b = v - j as f32;
+    let wx = [
+        0.5 * (0.5 - a).powi(2),
+        0.75 - a * a,
+        0.5 * (0.5 + a).powi(2),
+    ];
+    let wy = [
+        0.5 * (0.5 - b).powi(2),
+        0.75 - b * b,
+        0.5 * (0.5 + b).powi(2),
+    ];
+    let mut out = [(0, 0.); 9];
+    for y in 0..3 {
+        for x in 0..3 {
+            out[y * 3 + x] = (
+                ((j + y as isize - 1).rem_euclid(n as isize) as usize) * n
+                    + (i + x as isize - 1).rem_euclid(n as isize) as usize,
+                wx[x] * wy[y],
+            );
+        }
+    }
+    out
 }
 pub fn deposit(x: &[[f32; 2]], grid: &mut [f32], n: usize, length: f32) {
     grid.fill(0.);
@@ -218,7 +233,7 @@ impl Solver2 {
         );
         let kd = std::f64::consts::PI * c.bragg_mode as f64 / self.n as f64;
         let obs = self.freq[c.bragg_mode]
-            * ((p.xe.len() as f64).sqrt() / (self.n * self.n) as f64 / (kd.sin() / kd).powi(2))
+            * ((p.xe.len() as f64).sqrt() / (self.n * self.n) as f64 / (kd.sin() / kd).powi(3))
                 as f32;
         for j in 0..self.n * self.n {
             self.ni[j] -= self.ne[j];
@@ -305,6 +320,13 @@ pub fn simulate(c: &Config, s: &Scales, seed: u64) -> Result<Run> {
     let mut run = Run::default();
     for step in 0..=s.burn_steps + s.steps {
         let obs = solver.fields(&p, c, s);
+        if step < 2048 {
+            for x in p.xe.iter().take(16).chain(p.xi.iter().take(16)) {
+                for &v in x {
+                    run.fast_trajectory_x.push((v as f64 * s.lambda_de) as f32);
+                }
+            }
+        }
         if step == 0 {
             push(&mut p, &solver.e, c, s, -0.5 * c.dt as f32, 0.);
         }
@@ -327,7 +349,7 @@ pub fn simulate(c: &Config, s: &Scales, seed: u64) -> Result<Run> {
 mod tests {
     use super::*;
     #[test]
-    fn cic_conserves_charge_and_gathers_constant() {
+    fn tsc_conserves_charge_and_gathers_constant() {
         let n = 16;
         let p = vec![[0., 0.], [15.9, 15.8], [16.1, -0.2], [7.2, 3.1]];
         let mut g = vec![0.; n * n];
@@ -355,6 +377,36 @@ mod tests {
                 (2. * l * (j % n) as f32 / n as f32 + 3. * l * (j / n) as f32 / n as f32).sin();
             assert!((e[0] - 2. / 13. * sine).abs() < 2e-6);
             assert!((e[1] - 3. / 13. * sine).abs() < 2e-6);
+        }
+    }
+    #[test]
+    fn transverse_force_and_periodic_drift() {
+        let c = Config::parse_from(["t", "--cells", "32", "--bragg-mode", "1"]);
+        let s = Scales::new(&c).unwrap();
+        let mut p = Particles2 {
+            xe: vec![[0.2, 0.3]],
+            ve: vec![[0.1, 0.2]],
+            xi: vec![[0.2, 0.3]],
+            vi: vec![[0., 0.]],
+        };
+        push(&mut p, &vec![[2., -3.]; 1024], &c, &s, 0.05, 0.05);
+        assert!(p.ve[0][0].abs() < 1e-7);
+        assert!((p.ve[0][1] - 0.35).abs() < 1e-7);
+        assert!((p.xe[0][1] - 0.3175).abs() < 1e-7);
+        assert!(p.vi[0][0] > 0. && p.vi[0][1] < 0.);
+    }
+    #[test]
+    fn nyquist_plane_retains_other_field_component() {
+        let n = 32;
+        let l = 2. * std::f32::consts::PI;
+        let rho:Vec<_>=(0..n*n).map(|j|if j%n%2==0 {1.}else{-1.}*(2.*l*(j/n) as f32/n as f32).cos()).collect();
+        let mut solver = Solver2::new(n);
+        solver.poisson(&rho, l);
+        for (j, e) in solver.e.iter().enumerate() {
+            let expected = if j % n % 2 == 0 { 1. } else { -1. } * 2. / 260.
+                * (2. * l * (j / n) as f32 / n as f32).sin();
+            assert!(e[0].abs() < 1e-6);
+            assert!((e[1] - expected).abs() < 1e-6);
         }
     }
     #[test]

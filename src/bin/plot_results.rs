@@ -32,6 +32,11 @@ fn main() -> Result<()> {
     let mut individual = Vec::new();
     let mut windows_per_seed = None;
     for file in &files {
+        ensure!(
+            file.dataset("trajectories/0/x_m")?.ndim()
+                == first.dataset("trajectories/0/x_m")?.ndim(),
+            "Cannot mix 1D and 2D ensembles"
+        );
         let config: rpic_isr::Config =
             serde_json::from_slice(&file.dataset("config_json")?.read_raw::<u8>()?)?;
         for r in 0..config.realizations {
@@ -308,6 +313,22 @@ fn main() -> Result<()> {
                 Rect::new(20. + offset, 19., 61., 61.),
                 Axes::new([0., length], [0., length], "$x$ [m]", "$y$ [m]"),
             );
+            let fast = particle == 0 && first.link_exists("trajectories/0/fast_x_m");
+            let fast_x = if fast {
+                first
+                    .dataset("trajectories/0/fast_x_m")?
+                    .read_raw::<f32>()?
+            } else {
+                Vec::new()
+            };
+            let interval = if fast {
+                first
+                    .group("trajectories/0")?
+                    .attr("fast_interval_s")?
+                    .read_scalar::<f64>()?
+            } else {
+                0.
+            };
             for (j, color) in [
                 (particle, "#186e9c"),
                 (particle + 1, "#c45128"),
@@ -315,11 +336,17 @@ fn main() -> Result<()> {
             ] {
                 let mut pts = Vec::new();
                 let mut previous: Option<[f64; 2]> = None;
-                for (r, row) in d.as_chunks::<9>().0.iter().enumerate() {
-                    if row[0] > 0.001 {
+                let positions = if fast { &fast_x } else { &x };
+                let frames = positions.len() / 64;
+                for r in 0..frames {
+                    let time = if fast { r as f64 * interval } else { d[9 * r] };
+                    if time > if particle == 0 { 0.5e-6 } else { 0.001 } {
                         break;
                     }
-                    let p = [x[2 * (32 * r + j)] as f64, x[2 * (32 * r + j) + 1] as f64];
+                    let p = [
+                        positions[2 * (32 * r + j)] as f64,
+                        positions[2 * (32 * r + j) + 1] as f64,
+                    ];
                     if previous.is_some_and(|q| {
                         (p[0] - q[0]).abs() > length / 2. || (p[1] - q[1]).abs() > length / 2.
                     }) {
@@ -337,6 +364,15 @@ fn main() -> Result<()> {
             axes.yticklabels = axes.xticklabels.clone();
             plane.panels.push(panel);
             plane.labels.push(Label::new(title, 50. + offset, 8.));
+            plane.labels.push(Label::new(
+                if particle == 0 {
+                    r"First $0.5\,\mu\mathrm{s}$"
+                } else {
+                    "First 1 ms"
+                },
+                50. + offset,
+                101.,
+            ));
         }
         plane.save(Path::new(&args[0]).join("trajectories_2d.png"))?;
         plane.save(Path::new(&args[0]).join("trajectories_2d.svg"))?;

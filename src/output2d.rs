@@ -17,7 +17,7 @@ pub fn save(
     let spec = spectrum::welch(records, dt, c.window, c, s)?;
     let temporary = format!("{}.tmp", c.output);
     let f = hdf5::File::create(&temporary)?;
-    let metadata = serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),"package_version":env!("CARGO_PKG_VERSION"),"model":format!("periodic {dimensions}D{dimensions}V electrostatic PIC"),"dimensions":dimensions,"grid_shape":[c.cells,c.cells],"particles_per_species":c.cells*c.cells*c.ppc,"bragg_mode_xy":[c.bragg_mode,0],"trajectory_axes":["diagnostic_time","particle (16 electrons then 16 ions)","component (x,y)"],"temperature_definition":"mean of the x and y central velocity variances times mass/kB","initialization":"independent uniform positions and Gaussian velocities per component, zero species drift, exact target component variance; not Debye-correlated equilibrium","observable":"CIC-corrected electron density mode / sqrt(Np)","psd_unit":"Hz^-1","diagnostic_columns":["time_s","total_energy_kBTe","electron_kinetic_kBTe","ion_kinetic_kBTe","field_energy_kBTe","Te_K","Ti_K","x_momentum_me_vte","mean_charge_ne"]});
+    let metadata = serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),"package_version":env!("CARGO_PKG_VERSION"),"model":format!("periodic {dimensions}D{dimensions}V electrostatic PIC"),"dimensions":dimensions,"grid_shape":[c.cells,c.cells],"particles_per_species":c.cells*c.cells*c.ppc,"bragg_mode_xy":[c.bragg_mode,0],"trajectory_axes":["diagnostic_time","particle (16 electrons then 16 ions)","component (x,y)"],"temperature_definition":"mean of the x and y central velocity variances times mass/kB","initialization":"independent uniform positions and Gaussian velocities per component, zero species drift, exact target component variance; not Debye-correlated equilibrium","particle_shape":"quadratic B-spline (TSC)","fast_trajectory_interval":"dt_s","observable":"TSC-corrected electron density mode / sqrt(Np)","psd_unit":"Hz^-1","diagnostic_columns":["time_s","total_energy_kBTe","electron_kinetic_kBTe","ion_kinetic_kBTe","field_energy_kBTe","Te_K","Ti_K","x_momentum_me_vte","mean_charge_ne"]});
     f.new_dataset_builder()
         .with_data(serde_json::to_vec(&metadata)?.as_slice())
         .create("metadata_json")?;
@@ -72,6 +72,13 @@ pub fn save(
             .shape([nr, 32, dimensions])
             .create("v_m_s")?
             .write_raw(&runs[r].trajectory_v)?;
+        g.new_dataset::<f32>()
+            .shape([runs[r].fast_trajectory_x.len() / 64, 32, 2])
+            .create("fast_x_m")?
+            .write_raw(&runs[r].fast_trajectory_x)?;
+        g.new_attr::<f64>()
+            .create("fast_interval_s")?
+            .write_scalar(&s.dt_s)?;
     }
     drop((raw, sampled, diag, trajectories));
     f.flush()?;

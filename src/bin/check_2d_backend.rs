@@ -29,7 +29,9 @@ fn main() -> Result<()> {
     for file in [&a, &b] {
         let d = file.dataset("diagnostics/0")?.read_raw::<f64>()?;
         let drift = d
-            .chunks_exact(9)
+            .as_chunks::<9>()
+            .0
+            .iter()
             .map(|r| (r[1] / d[1] - 1.).abs())
             .fold(0f64, f64::max);
         println!("Maximum energy excursion: {:.6}%", 100. * drift);

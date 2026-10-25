@@ -25,6 +25,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let deposit = module.load_function("deposit2")?;
     let poisson = module.load_function("poisson2")?;
     let push = module.load_function("push2")?;
+    let trace = module.load_function("trace2")?;
     let mut initial = Particles2::default();
     for &seed in seeds {
         let p = Particles2::new(c, s, seed);
@@ -55,6 +56,8 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let mut efreq = stream.alloc_zeros::<float2>((2 * nn * batches) as usize)?;
     let mut e = stream.alloc_zeros::<float2>((2 * nn * batches) as usize)?;
     let mut obs = stream.alloc_zeros::<float2>(s.steps * seeds.len())?;
+    let frames = (s.burn_steps + s.steps + 1).min(2048) as i32;
+    let mut tracks = stream.alloc_zeros::<float2>(frames as usize * 32 * seeds.len())?;
     let fft = CudaFft::plan_many(
         &[ng, ng],
         None,
@@ -72,10 +75,27 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let cfgf = LaunchConfig::for_num_elems((nn * batches) as u32);
     let mode = c.bragg_mode as i32;
     let kd = std::f64::consts::PI * c.bragg_mode as f64 / c.cells as f64;
-    let norm = ((n as f64).sqrt() / nn as f64 / (kd.sin() / kd).powi(2)) as f32;
+    let norm = ((n as f64).sqrt() / nn as f64 / (kd.sin() / kd).powi(3)) as f32;
     let steps = s.steps as i32;
     let mut out: Vec<_> = seeds.iter().map(|_| Run::default()).collect();
     for step in 0..=s.burn_steps + s.steps {
+        if step < frames as usize {
+            let j = step as i32;
+            let lambda = s.lambda_de as f32;
+            unsafe {
+                stream
+                    .launch_builder(&trace)
+                    .arg(&xe)
+                    .arg(&xi)
+                    .arg(&mut tracks)
+                    .arg(&n)
+                    .arg(&batches)
+                    .arg(&j)
+                    .arg(&frames)
+                    .arg(&lambda)
+                    .launch(LaunchConfig::for_num_elems(32 * batches as u32))?;
+            }
+        }
         if step > 0 && step % 100000 == 0 {
             eprintln!(
                 "2D CUDA device {} batch {}: {:.3}/{:.3} ms, wall {:.1}s",
@@ -180,7 +200,8 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                     .collect();
                 let q = charge[(2 * b + 1) * nn as usize..(2 * b + 2) * nn as usize]
                     .iter()
-                    .map(|v| v.x as f64)
+                    .zip(&charge[2 * b * nn as usize..(2 * b + 1) * nn as usize])
+                    .map(|(ion, electron)| ion.x as f64 - electron.x as f64)
                     .sum::<f64>()
                     / nn as f64;
                 diagnostic2(run, &p, &ef, c, s, step, q);
@@ -211,7 +232,12 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
         }
     }
     let voltage = stream.clone_dtoh(&obs)?;
+    let positions = stream.clone_dtoh(&tracks)?;
     for (b, run) in out.iter_mut().enumerate() {
+        run.fast_trajectory_x = positions[b * frames as usize * 32..(b + 1) * frames as usize * 32]
+            .iter()
+            .flat_map(|v| [v.x, v.y])
+            .collect();
         run.voltage = voltage[b * s.steps..(b + 1) * s.steps]
             .iter()
             .map(|v| Complex32::new(v.x, v.y))
