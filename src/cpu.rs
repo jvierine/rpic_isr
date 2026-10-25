@@ -135,6 +135,8 @@ pub fn simulate(c: &Config, s: &Scales, seed: u64) -> Result<Run> {
     }
     solver.fields(&p, s, c);
     diagnostic(&mut out, &p, &solver.e, s, c, s.burn_steps + s.steps);
+    *out.diagnostics.last_mut().unwrap() =
+        solver.ni.iter().map(|x| *x as f64).sum::<f64>() / c.cells as f64;
     out.elapsed_s = timer.elapsed().as_secs_f64();
     Ok(out)
 }

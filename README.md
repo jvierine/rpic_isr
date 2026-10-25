@@ -11,6 +11,15 @@ compiled with NVRTC, cuFFT, and `cudarc`. No `nvcc` is needed at runtime.
 HDF5 records contain spectra, complex density-mode time series, selected particle
 trajectories, and energy/temperature/charge diagnostics.
 
+The completed example contains **64 independent GPU realizations** and a CPU
+backup run. It reproduces the ion-line shape, but has a roughly 4.3% integrated-
+power excess; the longer-burn-in comparison is inconclusive at its current sample
+count. Read [the executed validation record](VALIDATION.md) before quantitative use.
+
+![Simulated 440.2 MHz ion line, 64 independent realizations](examples/440mhz/ion_line.png)
+
+[Full HDF5 data and validation runs](https://github.com/jvierine/rpic_isr/releases/tag/v0.1.0)
+
 ## Model and normalization
 
 * Periodic domain parallel to the scattering vector, CIC charge deposit and

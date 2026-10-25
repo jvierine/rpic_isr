@@ -101,7 +101,7 @@ fn main() -> Result<()> {
             [-12., 12.],
             [0., ymax],
             r"Doppler frequency [kHz]",
-            r"$S(k_{\rm B},f)$ [$10^{-6}\,\mathrm{Hz}^{-1}$]",
+            r"$S(k,f)$ [$10^{-6}\,\mathrm{Hz}^{-1}$]",
         ),
     );
     if individual.len() > 1 {
@@ -157,9 +157,14 @@ fn main() -> Result<()> {
     diag.height_mm = 155.;
     let mut temp = Panel::new(
         Rect::new(30., 17., 131., 49.),
-        Axes::new([0., 10.], [0.9, 1.15], "Time [ms]", r"$T_s/T_s(0)$"),
+        Axes::new(
+            [0., 10.],
+            [-0.1, 1.],
+            "Time [ms]",
+            "Temperature change [percent]",
+        ),
     );
-    temp.axes.as_mut().unwrap().yticks = vec![0.9, 1., 1.1];
+    temp.axes.as_mut().unwrap().yticks = vec![0., 0.5, 1.];
     let mut energy = Panel::new(
         Rect::new(30., 96., 131., 39.),
         Axes::new([0., 10.], [-1., 2.], "Time [ms]", "Energy change [percent]"),
@@ -167,6 +172,8 @@ fn main() -> Result<()> {
     let mut tmax = 0f64;
     let mut emin = 0f64;
     let mut emax = 0f64;
+    let mut tempmin = 0f64;
+    let mut tempmax = 0f64;
     for file in &files {
         for name in file.group("diagnostics")?.member_names()? {
             let d = file
@@ -175,11 +182,16 @@ fn main() -> Result<()> {
             let e0 = d[1];
             tmax = tmax.max(d[d.len() - 9] * 1e3);
             for (j, color) in [(5, "#186e9c"), (6, "#c45128")] {
+                for row in d.as_chunks::<9>().0 {
+                    let change = 100. * (row[j] / d[j] - 1.);
+                    tempmin = tempmin.min(change);
+                    tempmax = tempmax.max(change);
+                }
                 let mut l = Line::new(
                     d.as_chunks::<9>()
                         .0
                         .iter()
-                        .map(|r| [r[0] * 1e3, r[j] / d[j]])
+                        .map(|r| [r[0] * 1e3, 100. * (r[j] / d[j] - 1.)])
                         .collect(),
                     color,
                 );
@@ -202,6 +214,13 @@ fn main() -> Result<()> {
         }
     }
     temp.axes.as_mut().unwrap().xlim = [0., tmax];
+    temp.axes.as_mut().unwrap().ylim = [tempmin - 0.1, tempmax + 0.1];
+    temp.axes.as_mut().unwrap().yticks = vec![0., tempmax / 2., tempmax];
+    temp.axes.as_mut().unwrap().yticklabels = Some(vec![
+        "0".into(),
+        format!("{:.2}", tempmax / 2.),
+        format!("{tempmax:.2}"),
+    ]);
     temp.axes.as_mut().unwrap().xticks = (0..=4).map(|i| tmax * i as f64 / 4.).collect();
     temp.axes.as_mut().unwrap().xticklabels = Some(
         (0..=4)
