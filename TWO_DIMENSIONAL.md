@@ -81,4 +81,24 @@ both scripts uses the two GPUs independently, not domain decomposition.
 The complete raw density series, filtered records and trajectory diagnostics
 are in HDF5. Existing filenames are not overwritten.
 
-Execution results and limitations will be recorded below after the runs finish.
+## Execution status (2026-10-25)
+
+The 2D source is implemented and pushed. All 16 library tests and strict
+Clippy checks pass, including oblique Poisson modes, component-specific
+Nyquist handling, periodic charge conservation and transverse acceleration.
+The final CUDA build was checked against its CPU reference on Seid: relative
+L2 errors were 1.10e-6 and 2.16e-6 for the real/imaginary density record,
+1.41e-7 for positions and 4.08e-7 for velocities. Both backends had 0.007956%
+maximum energy excursion over that short regression. This is a backend test,
+not a claim of long-time convergence.
+
+The full 16-realization ensemble is **running**, not yet a completed result.
+Both GTX 1080 Ti cards on Seid are processing eight independent seeds each
+(4000--4007 and 5000--5007), preserving the other user's running GPU process.
+The output directory is `results/2d_tsc` on the execution host. The recorded
+model revision is `65b8281c8f65362e4c56819db231254ef2e6d7ba`.
+
+The finished records still need independent-seed uncertainty, early/late
+stationarity, temperature/energy checks, and visual inspection of the native
+Rustplotlib figures before release. Long-burn and particle/grid convergence
+must not be inferred from the 1D results or the short regression above.

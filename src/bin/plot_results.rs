@@ -235,11 +235,12 @@ fn main() -> Result<()> {
     energy.axes.as_mut().unwrap().xlim = [0., tmax];
     energy.axes.as_mut().unwrap().xticks = temp.axes.as_ref().unwrap().xticks.clone();
     energy.axes.as_mut().unwrap().xticklabels = temp.axes.as_ref().unwrap().xticklabels.clone();
-    energy.axes.as_mut().unwrap().ylim = [emin - 0.2, emax + 0.2];
-    energy.axes.as_mut().unwrap().yticks = vec![0., emax / 2., emax];
+    let padding = 0.1 * (emax - emin).max(1e-4);
+    energy.axes.as_mut().unwrap().ylim = [emin - padding, emax + padding];
+    energy.axes.as_mut().unwrap().yticks = vec![emin, (emin + emax) / 2., emax];
     energy.axes.as_mut().unwrap().yticklabels = Some(vec![
-        "0".into(),
-        format!("{:.2}", emax / 2.),
+        format!("{emin:.2}"),
+        format!("{:.2}", (emin + emax) / 2.),
         format!("{emax:.2}"),
     ]);
     diag.panels.push(temp);
