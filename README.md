@@ -4,6 +4,18 @@
 with a genuine two-dimensional FFT Poisson solve. The original `rpic_isr`
 executable and 1D results below are retained. See [the 2D model](TWO_DIMENSIONAL.md).
 
+The completed 2D example has **16 independent realizations**, run on both
+GTX 1080 Ti cards on Seid. Its integrated ion-line power is `0.9511 +/- 0.0324`
+of theory (one standard error); maximum energy drift is 0.428%. This is an
+experimental result, not a demonstrated precision-converged plasma simulation.
+See [2D validation and limitations](VALIDATION_2D.md).
+
+![2D2V 440.2 MHz ion line, 16 independent realizations](examples/440mhz_2d/ion_line.png)
+
+[Complete 2D HDF5 records and regression tests](https://github.com/jvierine/rpic_isr/releases/tag/v0.2.0)
+
+## Original 1D example
+
 A small **1D1V, unmagnetized, electrostatic electron–ion particle-in-cell model**,
 with a periodic FFT Poisson solver. The observable is the electron-density
 Fourier mode at the monostatic Bragg wavenumber of a **440.2 MHz ISR**.

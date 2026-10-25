@@ -81,7 +81,7 @@ both scripts uses the two GPUs independently, not domain decomposition.
 The complete raw density series, filtered records and trajectory diagnostics
 are in HDF5. Existing filenames are not overwritten.
 
-## Execution status (2026-10-25)
+## Completed execution (2026-10-25)
 
 The 2D source is implemented and pushed. All 16 library tests and strict
 Clippy checks pass, including oblique Poisson modes, component-specific
@@ -92,13 +92,20 @@ L2 errors were 1.10e-6 and 2.16e-6 for the real/imaginary density record,
 maximum energy excursion over that short regression. This is a backend test,
 not a claim of long-time convergence.
 
-The full 16-realization ensemble is **running**, not yet a completed result.
-Both GTX 1080 Ti cards on Seid are processing eight independent seeds each
-(4000--4007 and 5000--5007), preserving the pre-existing GPU workload.
-The output directory is `results/2d_tsc` on the execution host. The recorded
-model revision is `65b8281c8f65362e4c56819db231254ef2e6d7ba`.
+The full **16-realization ensemble is complete**, with seeds 4000--4007 and
+5000--5007 run on both GTX 1080 Ti cards on Seid. The pre-existing GPU
+workload was preserved. Full-record ion-band power / theory is
+`0.951148 +/- 0.032437` (one standard error across seeds). The paired
+late-minus-early result is `-0.050010 +/- 0.067867`; no statistically
+significant change is detected at this sample count. Maximum energy drift
+is 0.42824%, electron-temperature change 0.66747% and ion-temperature change
+0.24312%. Measurable secular drift remains.
 
-The finished records still need independent-seed uncertainty, early/late
-stationarity, temperature/energy checks, and visual inspection of the native
-Rustplotlib figures before release. Long-burn and particle/grid convergence
-must not be inferred from the 1D results or the short regression above.
+The records pass complete-record, dimensionality and finite-data checks;
+all four final native Rustplotlib figures were visually inspected. The
+recorded model revision is `65b8281c8f65362e4c56819db231254ef2e6d7ba`.
+See [the executed validation and limitations](VALIDATION_2D.md),
+[the figures and compact data](examples/440mhz_2d), and
+[the complete raw-data release](https://github.com/jvierine/rpic_isr/releases/tag/v0.2.0).
+Longer-burn and numerical-convergence studies remain uncompleted: this is
+an experimental demonstration, not a precision-converged plasma simulation.
