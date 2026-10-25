@@ -94,7 +94,7 @@ not a claim of long-time convergence.
 
 The full 16-realization ensemble is **running**, not yet a completed result.
 Both GTX 1080 Ti cards on Seid are processing eight independent seeds each
-(4000--4007 and 5000--5007), preserving the other user's running GPU process.
+(4000--4007 and 5000--5007), preserving the pre-existing GPU workload.
 The output directory is `results/2d_tsc` on the execution host. The recorded
 model revision is `65b8281c8f65362e4c56819db231254ef2e6d7ba`.
 
