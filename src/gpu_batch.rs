@@ -75,6 +75,14 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let mut out: Vec<Run> = (0..seeds.len()).map(|_| Run::default()).collect();
     let steps = s.steps as i32;
     for step in 0..=s.burn_steps + s.steps {
+        if step > 0 && step % 100000 == 0 {
+            eprintln!(
+                "CUDA batch of {}: {:.3}/{:.3} ms",
+                seeds.len(),
+                step as f64 * s.dt_s * 1e3,
+                (s.burn_steps + s.steps) as f64 * s.dt_s * 1e3
+            );
+        }
         let count = 2 * ng * batches;
         unsafe {
             stream
@@ -206,31 +214,34 @@ mod tests {
     #[test]
     #[ignore = "Requires a Pascal-or-newer CUDA 12 GPU and NVRTC/cuFFT"]
     fn independent_batches_match_cpu_initial_trajectory() {
-        let mut c = Config::parse_from(["test"]);
-        c.cells = 64;
-        c.bragg_mode = 2;
-        c.ppc = 128;
-        c.duration_ms = 0.1;
-        c.burn_ms = 0.;
-        c.sample_us = 1.;
-        c.window = 16;
-        let s = Scales::new(&c).unwrap();
-        let seeds = [42, 43, 44, 45];
-        let gpu = simulate(&c, &s, &seeds).unwrap();
-        for (b, seed) in seeds.iter().enumerate() {
-            let cpu = cpu::simulate(&c, &s, *seed).unwrap();
-            for j in 0..20 {
-                assert!(
-                    (cpu.voltage[j] - gpu[b].voltage[j]).norm() < 5e-5,
-                    "seed {seed}, step {j}"
-                );
+        for (cells, dt) in [(64, 0.12), (128, 0.06)] {
+            let mut c = Config::parse_from(["test"]);
+            c.cells = cells;
+            c.dt = dt;
+            c.bragg_mode = 2;
+            c.ppc = 128;
+            c.duration_ms = 0.1;
+            c.burn_ms = 0.;
+            c.sample_us = 1.;
+            c.window = 16;
+            let s = Scales::new(&c).unwrap();
+            let seeds = [42, 43, 44, 45];
+            let gpu = simulate(&c, &s, &seeds).unwrap();
+            for (b, seed) in seeds.iter().enumerate() {
+                let cpu = cpu::simulate(&c, &s, *seed).unwrap();
+                for j in 0..20 {
+                    assert!(
+                        (cpu.voltage[j] - gpu[b].voltage[j]).norm() < 5e-5,
+                        "seed {seed}, step {j}"
+                    );
+                }
+                assert!(gpu[b]
+                    .diagnostics
+                    .as_chunks::<9>()
+                    .0
+                    .iter()
+                    .all(|r| r[8].abs() < 2e-6));
             }
-            assert!(gpu[b]
-                .diagnostics
-                .as_chunks::<9>()
-                .0
-                .iter()
-                .all(|r| r[8].abs() < 2e-6));
         }
     }
 }

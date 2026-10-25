@@ -170,9 +170,63 @@ pub fn theory(f: f64, c: &Config, s: &Scales) -> f64 {
     electron * gaussian(s.vte) + ion * gaussian(vi)
 }
 
+/// Expected finite-window spectrum: quadrature of the continuous Maxwellian
+/// spectrum against the periodic-Hann spectral response. Eightfold frequency
+/// oversampling resolves the kernel rather than merely smoothing FFT-bin values.
+/// The sampled observable has already been anti-aliased; this calculation is
+/// for its ion band, far below the FIR transition and final Nyquist frequency.
+pub fn windowed_theory(c: &Config, s: &Scales, dt: f64) -> Vec<f64> {
+    let oversample = 8;
+    let n = c.window;
+    let len = n * oversample;
+    let dense: Vec<_> = (0..len)
+        .map(|j| {
+            let signed = if j <= len / 2 {
+                j as f64
+            } else {
+                j as f64 - len as f64
+            };
+            theory(signed / (len as f64 * dt), c, s)
+        })
+        .collect();
+    let smooth = hann_convolve(&dense, n);
+    (0..n)
+        .map(|j| smooth[((j + n / 2) % n) * oversample])
+        .collect()
+}
+
+fn hann_convolve(density: &[f64], n: usize) -> Vec<f64> {
+    let len = density.len();
+    let mut planner = FftPlanner::<f64>::new();
+    let fft = planner.plan_fft_forward(len);
+    let inv = planner.plan_fft_inverse(len);
+    let mut w = vec![Complex64::default(); len];
+    for (j, z) in w.iter_mut().take(n).enumerate() {
+        z.re = 0.5 - 0.5 * (2. * std::f64::consts::PI * j as f64 / n as f64).cos();
+    }
+    let sumw2 = w.iter().map(|z| z.norm_sqr()).sum::<f64>();
+    fft.process(&mut w);
+    for z in &mut w {
+        *z = Complex64::new(z.norm_sqr() / (len as f64 * sumw2), 0.);
+    }
+    fft.process(&mut w);
+    let mut data: Vec<_> = density.iter().map(|x| Complex64::new(*x, 0.)).collect();
+    fft.process(&mut data);
+    for (x, y) in data.iter_mut().zip(w) {
+        *x *= y;
+    }
+    inv.process(&mut data);
+    data.iter().map(|z| (z.re / len as f64).max(0.)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn hann_response_preserves_constant() {
+        let p = hann_convolve(&vec![2.; 4096], 512);
+        assert!(p.iter().all(|x| (x - 2.).abs() < 1e-12));
+    }
     #[test]
     fn dawson_values() {
         assert!((dawson(1.) - 0.5380795069).abs() < 1e-8);

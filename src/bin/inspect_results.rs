@@ -21,7 +21,9 @@ fn main() -> Result<()> {
                 .read_raw::<f64>()?;
             ensure!(d.iter().all(|v| v.is_finite()), "Nonfinite diagnostics");
             let maximum = |column: usize, baseline: f64, scale: f64| {
-                d.chunks_exact(9)
+                d.as_chunks::<9>()
+                    .0
+                    .iter()
                     .map(|r| ((r[column] - baseline) * scale).abs())
                     .fold(0f64, f64::max)
             };

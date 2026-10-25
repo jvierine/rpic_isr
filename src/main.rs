@@ -43,7 +43,13 @@ fn main() -> Result<()> {
             }
         };
         let filtered = spectrum::decimate(&run.voltage, s.sample_stride);
-        let energy: Vec<f64> = run.diagnostics.chunks_exact(9).map(|r| r[1]).collect();
+        let energy: Vec<f64> = run
+            .diagnostics
+            .as_chunks::<9>()
+            .0
+            .iter()
+            .map(|r| r[1])
+            .collect();
         let drift = energy
             .iter()
             .map(|x| (x / energy[0] - 1.).abs())
@@ -143,6 +149,7 @@ fn save(c: &Config, s: &Scales, records: &[Vec<Complex32>], runs: &[Run]) -> Res
             .create("v_m_s")?
             .write_raw(&runs[r].trajectory_v)?;
     }
+    drop((raw, sampled, diag, trajectories));
     f.flush()?;
     drop(f);
     std::fs::rename(&temporary, &c.output)?;

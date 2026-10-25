@@ -17,9 +17,20 @@ fn main() -> Result<()> {
     let first = &files[0];
     let f = first.dataset("frequency_hz")?.read_raw::<f64>()?;
     let theory = first.dataset("theory_psd")?.read_raw::<f64>()?;
+    let mut physical: rpic_isr::Config =
+        serde_json::from_slice(&first.dataset("config_json")?.read_raw::<u8>()?)?;
+    physical.gpu_batch_size = physical.gpu_batch_size.max(1);
+    let scales = rpic_isr::Scales::new(&physical)?;
+    let matched_theory = rpic_isr::spectrum::windowed_theory(
+        &physical,
+        &scales,
+        first.attr("sample_interval_s")?.read_scalar::<f64>()?,
+    );
     let mut p = vec![0.; f.len()];
     let mut count = 0.;
     let mut seeds = std::collections::HashSet::new();
+    let mut individual = Vec::new();
+    let mut windows_per_seed = None;
     for file in &files {
         let config: rpic_isr::Config =
             serde_json::from_slice(&file.dataset("config_json")?.read_raw::<u8>()?)?;
@@ -38,6 +49,13 @@ fn main() -> Result<()> {
             "Physical parameters differ"
         );
         let n = file.attr("welch_segments")?.read_scalar::<u64>()? as f64;
+        let per_seed = n / config.realizations as f64;
+        ensure!(
+            windows_per_seed.is_none_or(|n: f64| (n - per_seed).abs() < 1e-10),
+            "Unequal segment counts per seed; cannot use equal-seed confidence intervals"
+        );
+        windows_per_seed = Some(per_seed);
+        individual.extend(rpic_isr::analysis::read(file)?);
         for (a, b) in p.iter_mut().zip(file.dataset("psd")?.read_raw::<f64>()?) {
             *a += n * b;
         }
@@ -46,6 +64,11 @@ fn main() -> Result<()> {
     for a in &mut p {
         *a /= count;
     }
+    let standard_error: Vec<_> = (0..p.len())
+        .map(|j| {
+            rpic_isr::analysis::mean_se(&individual.iter().map(|r| r.psd[j]).collect::<Vec<_>>()).1
+        })
+        .collect();
     let points = |y: &[f64]| {
         f.iter()
             .zip(y)
@@ -55,11 +78,18 @@ fn main() -> Result<()> {
     };
     let ymax = p
         .iter()
-        .zip(&f)
-        .filter(|(_, x)| x.abs() < 12000.)
-        .map(|(y, _)| *y)
+        .enumerate()
+        .filter(|(j, _)| f[*j].abs() < 12000.)
+        .map(|(j, y)| {
+            (*y + if standard_error[j].is_finite() {
+                1.96 * standard_error[j]
+            } else {
+                0.
+            })
+            .max(matched_theory[j])
+        })
         .fold(0f64, f64::max)
-        * 1.18e6;
+        * 1.1e6;
     let mut fig = Figure::new(IntendedUse::Custom {
         width_mm: 170.,
         font_pt: 11.,
@@ -74,8 +104,28 @@ fn main() -> Result<()> {
             r"$S(k_{\rm B},f)$ [$10^{-6}\,\mathrm{Hz}^{-1}$]",
         ),
     );
+    if individual.len() > 1 {
+        let mut band: Vec<_> = f
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.abs() <= 12000.)
+            .map(|(j, x)| [*x * 1e-3, (p[j] + 1.96 * standard_error[j]) * 1e6])
+            .collect();
+        band.extend(
+            f.iter()
+                .enumerate()
+                .rev()
+                .filter(|(_, x)| x.abs() <= 12000.)
+                .map(|(j, x)| [*x * 1e-3, (p[j] - 1.96 * standard_error[j]).max(0.) * 1e6]),
+        );
+        let mut fill = Line::new(band, "#b9d6e8");
+        fill.width_pt = 0.;
+        fill.fill = Some("#b9d6e8".into());
+        fill.fill_opacity = 0.65;
+        a.push(Layer::Line(fill));
+    }
     a.push(Layer::Line(Line::new(points(&p), "#186e9c")));
-    let mut l = Line::new(points(&theory), "#c45128");
+    let mut l = Line::new(points(&matched_theory), "#c45128");
     l.dash = Some("4 2".into());
     a.push(Layer::Line(l));
     fig.panels.push(a);
@@ -84,7 +134,15 @@ fn main() -> Result<()> {
         85.,
         7.,
     ));
-    let mut l = Label::new("PIC ensemble", 59., 16.);
+    let mut l = Label::new(
+        if individual.len() > 1 {
+            r"PIC mean ($95\%$ interval)"
+        } else {
+            "PIC realization"
+        },
+        59.,
+        16.,
+    );
     l.color = "#186e9c".into();
     fig.labels.push(l);
     let mut l = Label::new("Maxwellian theory", 120., 16.);
@@ -118,7 +176,9 @@ fn main() -> Result<()> {
             tmax = tmax.max(d[d.len() - 9] * 1e3);
             for (j, color) in [(5, "#186e9c"), (6, "#c45128")] {
                 let mut l = Line::new(
-                    d.chunks_exact(9)
+                    d.as_chunks::<9>()
+                        .0
+                        .iter()
                         .map(|r| [r[0] * 1e3, r[j] / d[j]])
                         .collect(),
                     color,
@@ -127,7 +187,9 @@ fn main() -> Result<()> {
                 temp.push(Layer::Line(l));
             }
             let pts: Vec<_> = d
-                .chunks_exact(9)
+                .as_chunks::<9>()
+                .0
+                .iter()
                 .map(|r| [r[0] * 1e3, 100. * (r[1] / e0 - 1.)])
                 .collect();
             for q in &pts {
@@ -189,7 +251,7 @@ fn main() -> Result<()> {
     ] {
         let mut points = Vec::new();
         let mut previous = None;
-        for (r, row) in d.chunks_exact(9).enumerate() {
+        for (r, row) in d.as_chunks::<9>().0.iter().enumerate() {
             if row[0] > 0.001 {
                 break;
             }
@@ -210,8 +272,51 @@ fn main() -> Result<()> {
     trajectories.save(Path::new(&args[0]).join("trajectories.svg"))?;
     // Derived scientific data and complete input configurations, not a CSV.
     let combined = hdf5::File::create(Path::new(&args[0]).join("ensemble.h5"))?;
-    for (name, v) in [("frequency_hz", &f), ("psd", &p), ("theory_psd", &theory)] {
+    for (name, v) in [
+        ("frequency_hz", &f),
+        ("psd", &p),
+        ("theory_psd", &theory),
+        ("windowed_theory_psd", &matched_theory),
+        ("psd_standard_error", &standard_error),
+    ] {
         combined.new_dataset_builder().with_data(v).create(name)?;
+    }
+    combined
+        .new_dataset_builder()
+        .with_data(&individual.iter().map(|r| r.seed).collect::<Vec<_>>())
+        .create("seeds")?;
+    let per_seed: Vec<_> = individual
+        .iter()
+        .flat_map(|r| r.psd.iter().copied())
+        .collect();
+    combined
+        .new_dataset::<f64>()
+        .shape([individual.len(), p.len()])
+        .create("psd_per_realization")?
+        .write_raw(&per_seed)?;
+    if individual.iter().all(|r| !r.early_psd.is_empty()) {
+        for (name, values) in [
+            (
+                "early_psd_per_realization",
+                individual
+                    .iter()
+                    .flat_map(|r| r.early_psd.iter().copied())
+                    .collect::<Vec<_>>(),
+            ),
+            (
+                "late_psd_per_realization",
+                individual
+                    .iter()
+                    .flat_map(|r| r.late_psd.iter().copied())
+                    .collect::<Vec<_>>(),
+            ),
+        ] {
+            combined
+                .new_dataset::<f64>()
+                .shape([individual.len(), p.len()])
+                .create(name)?
+                .write_raw(&values)?;
+        }
     }
     combined
         .new_attr::<u64>()
@@ -228,6 +333,11 @@ fn main() -> Result<()> {
             g.new_dataset_builder()
                 .with_data(&file.dataset(name)?.read_raw::<u8>()?)
                 .create(name)?;
+        }
+        if file.link_exists("metadata_json") {
+            g.new_dataset_builder()
+                .with_data(&file.dataset("metadata_json")?.read_raw::<u8>()?)
+                .create("metadata_json")?;
         }
     }
     let band: Vec<_> = f

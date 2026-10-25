@@ -1,5 +1,6 @@
 //! 1D1V electrostatic PIC, normalized to lambda_De, omega_pe^-1 and v_te.
 //! The observable is the electron density mode, NOT free ion trajectories.
+pub mod analysis;
 pub mod cpu;
 #[cfg(feature = "cuda")]
 pub mod gpu;

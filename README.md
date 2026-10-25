@@ -55,7 +55,10 @@ S = |1-chi_e/epsilon|^2 g_e(f) + |chi_e/epsilon|^2 g_i(f)
 
 Each free-particle Gaussian `g_s` has unit area and standard deviation
 `k v_ts/(2 pi)`. There is **no fitted amplitude multiplier**. The theory curve
-is not convolved with the Welch spectral window. The model has no magnetic
+in the simulation HDF5 is not convolved with the Welch spectral window; the
+plotter additionally calculates a window-matched comparison by integrating
+against the Hann spectral response on an eightfold oversampled frequency grid.
+The model has no magnetic
 field, neutral collisions, transverse dynamics, propagation, receiver noise,
 range ambiguity, antenna model, or absolute radar calibration. It is a reduced
 kinetic teaching experiment, not a complete ISR forward model.
@@ -98,6 +101,24 @@ The two cards instead run **independent ensembles concurrently**, with distinct
 seeds. Their spectra can be averaged with weights equal to their Welch-segment
 counts. Overlapping Welch segments are not statistically independent.
 
+The refined production run is started with:
+
+```sh
+bash scripts/run_production.sh 0 1000 results/production
+# In a second terminal:
+bash scripts/run_production.sh 1 2000 results/production
+```
+
+Each card runs 32 independent seeds, in batches of eight. This uses 128 cells,
+256 particles/cell/species (32768 electrons plus 32768 ions), `dt=0.06`, a
+10 ms burn-in and an 8 ms measurement record. `--gpu-batch-size` batches disjoint
+realizations into cuFFT plans and kernel launches. Block-private shared-memory
+CIC deposition reduces contention without changing the particle weights or
+forces. Each realization is saved separately with `--checkpoint-dir`, as well
+as being included in the combined file. A completed checkpoint can be used on
+its own even if a later batch fails. A single batch shares one measured wall
+time; the per-realization printed time is therefore not an exclusive run cost.
+
 The GPU loop keeps particle positions, velocities, grids, FFT workspaces, and
 the raw density record on the device. It downloads only periodic diagnostics
 and the finished record. Particle/grid/FFT arithmetic is float32; diagnostics,
@@ -122,12 +143,27 @@ cargo build --release --features plot --bin plot_results
 target/release/plot_results results/figures results/gpu0.h5 results/gpu1.h5
 ```
 
-This writes PNG/SVG ion-line and energy/temperature figures. The plotter refuses
-to combine different frequency axes or different physical theory curves.
+This writes PNG/SVG ion-line, energy/temperature, and selected ion-trajectory
+figures, plus `ensemble.h5`. The shaded band is a normal-approximation 95%
+**pointwise** interval, calculated across the independent per-seed PSDs; it is
+not a simultaneous band and does not include discretization/model error.
+The plotter refuses repeated seeds, unequal per-seed segment counts,
+different frequency axes, or different physical theory curves.
+
+```sh
+cargo run --release --bin check_ensemble -- results/production/gpu0.h5 results/production/gpu1.h5
+```
+
+This recomputes each realization's PSD, compares the first and second halves
+of the measurement record using paired per-seed differences, and reports
+energy, temperature, charge, and selected final-velocity diagnostics. Half-record
+tests require at least one full spectral window in each half. They are statistical
+checks, not proofs that all initialization or finite-particle effects have vanished.
 
 ## HDF5 layout
 
 `config_json`, `scales_json`: UTF-8 JSON bytes with all run parameters and units.
+`metadata_json`: source revision, observable, units and diagnostic column definitions.
 `frequency_hz`, `psd`, `theory_psd`: fftshifted two-sided spectra.
 `acf_real`, `acf_imag`: lag sequence, spacing `sample_interval_s` (attribute).
 `welch_segments`: number of overlapping windows (attribute).
@@ -139,6 +175,11 @@ normalized per macro-particle pair to `k_B Te_initial`; mean charge is normalize
 to the background density. Momentum is in `m_e v_te` units per pair.
 `trajectories/<realization>/{x_m,v_m_s}`: rows at diagnostic times, columns the
 first 16 electrons followed by the first 16 ions; positions are wrapped periodically.
+
+The derived `ensemble.h5` stores both the unsmoothed and window-matched theoretical
+curves, independent seeds, per-realization spectra, the standard error of their
+mean, early/late spectra where available, and all input configurations/build
+metadata. No amplitude fitting, frequency folding, or enforced symmetry is used.
 
 ## Validation boundaries
 
