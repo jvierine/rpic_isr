@@ -46,6 +46,22 @@ pub fn save(
     let sampled = f.create_group("sampled")?;
     let diag = f.create_group("diagnostics")?;
     let trajectories = f.create_group("trajectories")?;
+    // A separate 20 kHz ion-band output; keep the original high-rate spectral
+    // record unchanged. Anti-alias filtering precedes the 50 us decimation.
+    let snapshots = f.create_group("sampled_50us")?;
+    let cadence = (50e-6 / s.dt_s).round().max(1.) as usize;
+    snapshots
+        .new_attr::<f64>()
+        .create("sample_interval_s")?
+        .write_scalar(&(cadence as f64 * s.dt_s))?;
+    snapshots
+        .new_attr::<f64>()
+        .create("first_sample_after_burn_s")?
+        .write_scalar(&(16. * cadence as f64 * s.dt_s))?;
+    snapshots
+        .new_attr::<f64>()
+        .create("fir_cutoff_hz")?
+        .write_scalar(&(0.4 / (cadence as f64 * s.dt_s)))?;
     for r in 0..runs.len() {
         let save_complex = |g: &hdf5::Group, z: &[Complex32]| -> Result<()> {
             g.new_dataset_builder()
@@ -58,6 +74,10 @@ pub fn save(
         };
         save_complex(&raw.create_group(&r.to_string())?, &runs[r].voltage)?;
         save_complex(&sampled.create_group(&r.to_string())?, &records[r])?;
+        if runs[r].voltage.len() > 32 * cadence {
+            let coarse = spectrum::decimate(&runs[r].voltage, cadence);
+            save_complex(&snapshots.create_group(&r.to_string())?, &coarse)?;
+        }
         let nr = runs[r].diagnostics.len() / 9;
         diag.new_dataset::<f64>()
             .shape([nr, 9])
@@ -80,7 +100,7 @@ pub fn save(
             .create("fast_interval_s")?
             .write_scalar(&s.dt_s)?;
     }
-    drop((raw, sampled, diag, trajectories));
+    drop((raw, sampled, diag, trajectories, snapshots));
     f.flush()?;
     drop(f);
     std::fs::rename(&temporary, &c.output)?;

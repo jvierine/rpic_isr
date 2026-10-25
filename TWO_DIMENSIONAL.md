@@ -110,14 +110,21 @@ See [the executed validation and limitations](VALIDATION_2D.md),
 Longer-burn and numerical-convergence studies remain uncompleted: this is
 an experimental demonstration, not a precision-converged plasma simulation.
 
-## Ensemble expansion to 64 realizations
+## Additional continuous sampling
 
-The additional-sampling campaign uses `scripts/run_2d_extended.sh` with seeds
-6000--6023 on GPU 0 and 7000--7023 on GPU 1. These 48 new independent
-realizations retain exactly the original physical and numerical settings,
-including 10 ms burn-in and 8 ms recording. They will be combined with the
-original 16 after completion and validation. This increases statistical
-sampling, not the mesh resolution or number of particles per realization.
-The 64-realization result is not yet complete; v0.2.0 remains the checked
-16-realization release. More seeds reduce sampling uncertainty but do not
-remove numerical bias or establish burn-in convergence.
+The requested additional-sampling campaign now uses continuous trajectories
+instead of repeatedly paying for burn-in. `scripts/run_2d_continuous.sh` uses
+seeds 6000--6007 on GPU 0 and 7000--7007 on GPU 1: each has one 10 ms burn-in
+followed by 24 ms continuous recording. This supplies the same 384 ms of new
+recording as 48 separate 8 ms runs, with 37% fewer timesteps in total.
+There are 16 new trajectories, not 48 new independent initializations.
+The superseded short-run expansion was stopped before producing records;
+the original completed v0.2.0 data are unchanged.
+
+The normal approximately 4 us output is retained for spectra. A separate
+`sampled_50us` group contains approximately 50 us-spaced ion-band samples,
+with anti-alias FIR filtering before decimation (8 kHz nominal cutoff).
+Its exact cadence and edge-trimming time are recorded as HDF5 attributes.
+More time samples improve statistical sampling but do not remove numerical
+bias; covariance and block-based uncertainty must be retained in analysis.
+The continuous campaign is not yet complete.
