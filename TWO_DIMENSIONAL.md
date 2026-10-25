@@ -109,3 +109,15 @@ See [the executed validation and limitations](VALIDATION_2D.md),
 [the complete raw-data release](https://github.com/jvierine/rpic_isr/releases/tag/v0.2.0).
 Longer-burn and numerical-convergence studies remain uncompleted: this is
 an experimental demonstration, not a precision-converged plasma simulation.
+
+## Ensemble expansion to 64 realizations
+
+The additional-sampling campaign uses `scripts/run_2d_extended.sh` with seeds
+6000--6023 on GPU 0 and 7000--7023 on GPU 1. These 48 new independent
+realizations retain exactly the original physical and numerical settings,
+including 10 ms burn-in and 8 ms recording. They will be combined with the
+original 16 after completion and validation. This increases statistical
+sampling, not the mesh resolution or number of particles per realization.
+The 64-realization result is not yet complete; v0.2.0 remains the checked
+16-realization release. More seeds reduce sampling uncertainty but do not
+remove numerical bias or establish burn-in convergence.

@@ -3,13 +3,17 @@
 This validates the data contract, not numerical convergence or equilibration.
 """
 import json
-import sys
+import argparse
 
 import h5py
 import numpy as np
 
 seeds = set()
-for path in sys.argv[1:]:
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--expected-realizations", type=int, default=16)
+parser.add_argument("paths", nargs="+")
+args = parser.parse_args()
+for path in args.paths:
     with h5py.File(path, "r") as f:
         config = json.loads(bytes(f["config_json"][:]))
         scales = json.loads(bytes(f["scales_json"][:]))
@@ -47,5 +51,5 @@ for path in sys.argv[1:]:
             assert np.all(positions >= 0) and np.all(positions <= scales["length_m"])
             assert np.all(np.std(positions, axis=0) > 0), "Frozen position component"
         print(f"{path}: {len(checked)} finite floating datasets, complete 2D records")
-assert len(seeds) == 16, f"Expected 16 independent seeds, found {len(seeds)}"
-print("PASS: 16 complete independent realizations", sorted(seeds))
+assert len(seeds) == args.expected_realizations, f"Expected {args.expected_realizations} independent seeds, found {len(seeds)}"
+print(f"PASS: {len(seeds)} complete independent realizations", sorted(seeds))
