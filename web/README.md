@@ -2,22 +2,27 @@
 
 Public route: https://juha.no/picisr/
 
-Pending longer recordings: the new capture mode supports 4096 dense frames
-and a 16 ms voltage record (4× the original lengths), with the same 10 ms
-burn-in. Native potential nodes are cropped before writing HDF5 to avoid
-multi-gigabyte full-box movies; crop geometry remains in metadata. The low
-recording is running on GPU1. Preserve the ongoing 256² validation on GPU0;
-the extended 512² high recording is queued after the low recording, not yet
-started. Do not label either longer recording deployed before verification.
+The accepted longer low-density record has 4096 dense frames (348.42 us)
+and 16 ms voltage, with unchanged 10 ms burn-in. Native potential nodes are
+cropped before writing HDF5; crop geometry remains in metadata. It has
+0.57113% maximum energy excursion, final Te=2015.85 K/Ti=1002.82 K, and
+recording temperature changes +0.45748%/+0.14532%. Early/late electron-band
+power ratios are 0.98701/1.02138; these checks do not establish equilibrium
+or spectral convergence. Wasm checks passed at 4096 frames, with 44 overlapping
+8192-point Hann windows and PSD integral 0.462093 vs raw power 0.463624.
+The original short data remains intact. The extended 512² high-density case
+is now running on GPU1 (10 ms burn + 16 ms record, 4096 dense frames).
+The ongoing 256² validation on GPU0 is preserved; the high menu entry still
+selects the original short diagnostic run until the replacement passes.
 
-The pending frontend adds a Rust/Wasm, zero-phase Gaussian FIR overlay on
+The frontend adds a Rust/Wasm, zero-phase Gaussian FIR overlay on
 the full complex voltage: thick blue/orange are filtered Re/Im, thin pale
 lines are unfiltered Re/Im. The cutoff is 30 kHz at -3 dB power. Linear FFT
 convolution avoids circular wrap, and unsupported edge intervals are omitted.
 The original signal and its Welch spectrum are not altered. A checkbox hides
 the overlay. Tests check gain/phase at 10 kHz, rejection at 1 MHz, omitted
 edges, and preservation of the input array. Browser QA passed locally with
-the original recording; deployment awaits the longer data.
+the original recording and numerical checks passed on the longer low record.
 
 Spatial-resolution correction: the potential transport now crops native mesh
 nodes around the camera, without skipping nodes or resampling the data. The
@@ -65,6 +70,8 @@ Default high-density FFT length 32768 gives 1.134 kHz bins. Early/late
 plasma-band power ratios are 0.669/0.488: stationarity is not established.
 Full HDF5 source hashes are in the exported metadata; browser binaries are
 transport products, not replacements for the authoritative HDF5.
+
+## Original short-record configuration (retained)
 
 Full-viewport WebGL2 view, 100 dots by default (50 electrons, 50 O+ ions),
 10×10 Debye-length crop, a display-only 10–1,000 particle cap, time controls,

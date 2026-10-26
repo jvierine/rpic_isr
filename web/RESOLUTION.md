@@ -29,8 +29,14 @@ its 828.45-s runtime includes frequent CPU diagnostics and is not a reliable
 production ETA. The full 256² validation (10 ms burn + 4 ms record) is running.
 The user subsequently requested 4× longer recordings and a low-pass voltage
 overlay. New production captures use 4096 dense frames and 16 ms record,
-with unchanged 10 ms burn-in. The low case is running on GPU1; the 512² high
-case follows it. Scripts refuse to overwrite prior HDF5.
+with unchanged 10 ms burn-in. The low case completed: maximum energy excursion
+0.571131%, recording Te/Ti changes +0.457484%/+0.145322%, all data finite and
+4096 frames verified. The extended 512² high case is now running on GPU1;
+the public high selection remains the old short diagnostic until validation.
+Scripts refuse to overwrite prior HDF5. Raw extended-low capture SHA256:
+75f8abd781e07ef0e0ada5be9e1c7f6f51a6affbb487c9951e97282263dc1328;
+spectrum SHA256:
+b4fd738cd580e44c3711d51a494fd11268d70fc6f2642d0c947aa16b762c814d.
 
 Before replacing the public high-density recording: check finite complete
 records, energy and temperature histories, early/late spectral stationarity,
