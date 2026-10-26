@@ -233,5 +233,15 @@ pub fn simulate(o: &Options, c: &Config, s: &Scales) -> Result<ResultData> {
         }
     }
     out.elapsed = timer.elapsed().as_secs_f64();
+    out.final_rho = stream
+        .clone_dtoh(&grid)?
+        .iter()
+        .map(|v| v.x as f64)
+        .collect();
+    out.final_phi = stream
+        .clone_dtoh(&oldphi)?
+        .iter()
+        .map(|v| v.x as f64)
+        .collect();
     Ok(out)
 }

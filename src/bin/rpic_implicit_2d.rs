@@ -61,6 +61,14 @@ fn main() -> Result<()> {
     f.new_dataset_builder()
         .with_data(&result.residuals)
         .create("residual_rms")?;
+    f.new_dataset::<f64>()
+        .shape([c.cells, c.cells])
+        .create("final_rho")?
+        .write_raw(&result.final_rho)?;
+    f.new_dataset::<f64>()
+        .shape([c.cells, c.cells])
+        .create("final_phi")?
+        .write_raw(&result.final_phi)?;
     f.new_attr::<f64>()
         .create("elapsed_s")?
         .write_scalar(&result.elapsed)?;

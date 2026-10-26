@@ -25,9 +25,9 @@ pub struct Options {
     pub steps: usize,
     #[arg(long, default_value_t = 42)]
     pub seed: u64,
-    #[arg(long, default_value_t = 2e-5)]
+    #[arg(long, default_value_t = 2e-7)]
     pub rtol: f64,
-    #[arg(long, default_value_t = 2e-8)]
+    #[arg(long, default_value_t = 2e-9)]
     pub atol: f64,
     #[arg(long, default_value_t = 40)]
     pub max_iterations: usize,
@@ -55,6 +55,17 @@ impl Options {
                 && self.relaxation > 0.
                 && self.relaxation <= 1.,
             "Invalid implicit controls"
+        );
+        anyhow::ensure!(
+            self.cells <= 512
+                && self
+                    .cells
+                    .checked_mul(self.cells)
+                    .and_then(|n| n.checked_mul(self.ppc))
+                    .is_some_and(|n| n <= i32::MAX as usize / 2)
+                && self.particle_iterations <= 1024
+                && self.max_iterations <= 1024,
+            "Implicit allocation or iteration limit exceeded"
         );
         let c = Config {
             backend: self.backend,
@@ -308,6 +319,8 @@ pub struct ResultData {
     pub iterations: Vec<u32>,
     pub residuals: Vec<f64>,
     pub elapsed: f64,
+    pub final_rho: Vec<f64>,
+    pub final_phi: Vec<f64>,
 }
 pub const COLUMNS: [&str; 12] = [
     "time_s",
@@ -459,8 +472,8 @@ pub fn simulate(o: &Options, c: &Config, s: &Scales) -> Result<ResultData> {
         p = trial;
         out.iterations.push(iterations as u32);
         out.residuals.push(residual);
-        out.density.push(solver.observable);
         if step % o.diagnostic_stride == 0 || step == o.steps {
+            out.density.push(solver.observable);
             diagnostics(
                 &mut out,
                 &p,
@@ -475,6 +488,8 @@ pub fn simulate(o: &Options, c: &Config, s: &Scales) -> Result<ResultData> {
         }
     }
     out.elapsed = start.elapsed().as_secs_f64();
+    out.final_rho = solver.rho;
+    out.final_phi = solver.phi;
     Ok(out)
 }
 
