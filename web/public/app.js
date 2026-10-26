@@ -1,4 +1,4 @@
-import init, {Replay, Welch, ScientificPlot, PlasmaView} from './pkg/picisr_web.js?v=652fb638f3c7';
+import init, {Replay, Welch, ScientificPlot, PlasmaView, ion_lowpass} from './pkg/picisr_web.js?v=cbeb2cff8ee2';
 import {ProgressDownloads} from './loading.js?v=ebb138dbfd70';
 import {simulationClock} from './annotations.js?v=e0a325e6b590';
 import {bindPlotNavigation} from './navigation.js?v=cf02acb86355';
@@ -53,10 +53,19 @@ function chart(c,xmin,xmax,ymin,ymax,xlabel,ylabel){
  const view=Array.from(p.viewport_bounds());c.dataset.viewport=JSON.stringify(view);
  c.setAttribute('aria-label',`${xlabel}: ${(xmin+view[0]*(xmax-xmin)).toPrecision(4)} to ${(xmin+view[2]*(xmax-xmin)).toPrecision(4)}; ${ylabel}: ${(ymin+view[1]*(ymax-ymin)).toPrecision(4)} to ${(ymin+view[3]*(ymax-ymin)).toPrecision(4)}`);return p;
 }
-function curve(plot,values,colour){const rgb=colour.match(/\w\w/g).map(v=>parseInt(v,16)/255);plot.series(new Float64Array(values.flat()),...rgb,1.25,false);}
+function curve(plot,values,colour,width=1.25){const rgb=colour.match(/\w\w/g).map(v=>parseInt(v,16)/255);plot.series(new Float64Array(values.flat()),...rgb,width,false);}
 let waveform;
-function prepareWaveform(){const duration=(meta.frames-1)*meta.frame_dt_s;const n=Math.min(signal.length/2,Math.floor((duration-meta.signal_first_s)/meta.signal_dt_s));let amplitude=0;const real=[],imag=[];for(let j=0;j<n;j++){const t=(meta.signal_first_s+j*meta.signal_dt_s)*1e6;real.push([t,signal[2*j]]);imag.push([t,signal[2*j+1]]);amplitude=Math.max(amplitude,Math.abs(signal[2*j]),Math.abs(signal[2*j+1]));}waveform={real,imag,amplitude:amplitude*1.08,duration};}
-function drawSignal(){if(!waveform||$('plots').hidden)return;const p=chart($('signal'),0,waveform.duration*1e6,-waveform.amplitude,waveform.amplitude,'Time after burn-in [µs]','Normalized amplitude');curve(p,waveform.real,'#126ca4');curve(p,waveform.imag,'#b64a16');const t=frame*meta.frame_dt_s*1e6;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
+function prepareWaveform(){
+ const duration=(meta.frames-1)*meta.frame_dt_s,n=Math.min(signal.length/2,Math.floor((duration-meta.signal_first_s)/meta.signal_dt_s));
+ const filtered=ion_lowpass(signal,meta.signal_dt_s,30000);
+ let amplitude=0;const real=[],imag=[],slowReal=[],slowImag=[];
+ for(let j=0;j<n;j++){const t=(meta.signal_first_s+j*meta.signal_dt_s)*1e6;real.push([t,signal[2*j]]);imag.push([t,signal[2*j+1]]);slowReal.push([t,filtered[2*j]]);slowImag.push([t,filtered[2*j+1]]);amplitude=Math.max(amplitude,Math.abs(signal[2*j]),Math.abs(signal[2*j+1]));}
+ waveform={real,imag,slowReal,slowImag,amplitude:amplitude*1.08,duration};
+}
+function drawSignal(){if(!waveform||$('plots').hidden)return;const p=chart($('signal'),0,waveform.duration*1e6,-waveform.amplitude,waveform.amplitude,'Time after burn-in [µs]','Normalized amplitude');
+ const show=$('lowpass').checked;curve(p,waveform.real,show?'#8dbbd6':'#126ca4',1);curve(p,waveform.imag,show?'#d8ad89':'#b64a16',1);
+ if(show){curve(p,waveform.slowReal,'#126ca4',2.5);curve(p,waveform.slowImag,'#b64a16',2.5);}
+ const t=frame*meta.frame_dt_s*1e6;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
 function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=Number($('band').value),n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-55;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');drawPlasmaLine();}
 function drawPlasmaLine(){
  if(!meta||$('plots').hidden)return;
@@ -84,6 +93,7 @@ $('play').onclick=()=>{if(frame>=meta.frames-1.01)frame=16;running=!running;$('p
 $('restart').onclick=()=>{frame=16;running=true;$('play').textContent='Pause';$('playtime').textContent='Recorded time, slowed down';};
 $('scrub').oninput=()=>{frame=Number($('scrub').value);running=false;$('play').textContent='Play';$('playtime').textContent='Paused';};
 $('count').oninput=()=>{$('countLabel').textContent=$('count').value;};
+ $('lowpass').onchange=drawSignal;
 $('contrast').oninput=()=>{$('contrastLabel').textContent=`${Number($('contrast').value).toFixed(1)}×`;};
  $('band').onchange=()=>{plotRenderers.get('spectrum')?.reset();drawSpectrum();};$('fft').onchange=calculate;$('recalculate').onclick=calculate;
 window.addEventListener('resize',()=>{drawSpectrum();drawSignal();});
@@ -118,7 +128,7 @@ async function loadRun(id){
  if(replay){replay.free();replay=null;}
  downloads=makeDownloads();
  try{
- const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=667b2a3c9145',import.meta.url);
+ const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=e047a7e2303a',import.meta.url);
  const metadataUrl=new URL(run.metadata,location.href);
  const response=await fetch(metadataUrl,{cache:'no-cache'});if(!response.ok)throw Error('Recording metadata is not available');meta=await response.json();
  const asset=name=>new URL(meta[name],metadataUrl);
@@ -143,6 +153,7 @@ async function loadRun(id){
  $('fft').value=String(meta.default_fft);$('play').textContent='Pause';$('playtime').textContent='Recorded time, slowed down';
  for(const control of ['run','play','restart','scrub','recalculate'])$(control).disabled=false;
  frame=16;running=true;state.ready=true;state.totalParticles=meta.particles_per_species*2;state.clipDurationUs=(meta.frames-1)*meta.frame_dt_s*1e6;
+ $('scrub').max=String(meta.frames-1.001);
  state.run=run.id;$('run').value=run.id;
  const url=new URL(location.href);url.searchParams.set('run',run.id);history.replaceState(null,'',url);
  $('plots').hidden=!plotsWereOpen;$('plotsToggle').setAttribute('aria-expanded',String(plotsWereOpen));

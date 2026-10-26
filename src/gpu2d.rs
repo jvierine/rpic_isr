@@ -27,6 +27,14 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let push = module.load_function("push2")?;
     let trace = module.load_function("trace2")?;
     let web_path = std::env::var("RPIC_WEB_CAPTURE").ok();
+    let web_frames: usize = std::env::var("RPIC_WEB_FRAMES").ok()
+        .map(|s| s.parse()).transpose()?.unwrap_or(1024);
+    anyhow::ensure!((2..=8192).contains(&web_frames), "Invalid web frame count");
+    let web_crop = std::env::var("RPIC_WEB_CROP").is_ok_and(|v| v == "1");
+    let web_grid = if web_crop {
+        ((10.0 / s.dx + 2.0).ceil() as usize).next_power_of_two().min(c.cells)
+    } else { c.cells };
+    let web_start = (c.cells - web_grid) / 2;
     anyhow::ensure!(
         web_path.is_none() || (seeds.len() == 1 && c.cells*c.cells*c.ppc >= 4096 && (c.cells*c.cells*c.ppc).is_multiple_of(4096)),
         "Web capture requires one realization with a particle count divisible by 4096"
@@ -155,7 +163,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
         fft.exec_c2c(&mut grid, &mut freq, FftDirection::Forward)?;
         if web_path.is_some() && step >= s.burn_steps {
             let elapsed = step - s.burn_steps;
-            if elapsed.is_multiple_of(8) && elapsed / 8 < 1024 {
+            if elapsed.is_multiple_of(8) && elapsed / 8 < web_frames {
                 let pool = 4096i32;
                 unsafe {
                     stream
@@ -185,7 +193,10 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                         .into_iter()
                         .flat_map(|p| [p.x, p.y]),
                 );
-                web_fields.extend(stream.clone_dtoh(&web_phi)?.into_iter().map(|p| p.x));
+                let native = stream.clone_dtoh(&web_phi)?;
+                for row in web_start..web_start+web_grid {
+                    web_fields.extend(native[row*c.cells+web_start..row*c.cells+web_start+web_grid].iter().map(|p| p.x));
+                }
             }
         }
         let record = if step >= s.burn_steps && step < s.burn_steps + s.steps {
@@ -298,7 +309,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let positions = stream.clone_dtoh(&tracks)?;
     if let Some(path) = web_path {
         let frames = web_x.len() / 8192 / 2;
-        anyhow::ensure!(frames == 1024, "Incomplete web recording");
+        anyhow::ensure!(frames == web_frames, "Incomplete web recording");
         if let Some(parent) = std::path::Path::new(&path).parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -311,7 +322,8 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                 serde_json::to_vec(
                     &serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),
             "capture":"post-burn positions and endpoint potential; stride 8; fixed IDs p=j*(particles_per_species/4096) for each species",
-            "solver":"explicit 2D2V TSC CUDA leapfrog, not the implicit prototype","seed":seeds[0]}),
+            "solver":"explicit 2D2V TSC CUDA leapfrog, not the implicit prototype","seed":seeds[0],
+            "potential_grid":web_grid,"potential_start_node":web_start,"frames":frames}),
                 )?,
             ),
         ] {
@@ -322,7 +334,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
             .create("positions_lambda_de")?
             .write_raw(&web_x)?;
         f.new_dataset::<f32>()
-            .shape([frames, c.cells, c.cells])
+            .shape([frames, web_grid, web_grid])
             .create("potential_kbte_e")?
             .write_raw(&web_fields)?;
         f.new_dataset::<f32>()

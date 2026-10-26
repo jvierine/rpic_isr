@@ -1,7 +1,7 @@
 // Numerical tests of the exact built Wasm and exported scientific transports.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import {initSync, Replay, Welch, PlotViewport} from './public/pkg/picisr_web.js';
+import {initSync, Replay, Welch, PlotViewport, ion_lowpass} from './public/pkg/picisr_web.js';
 initSync({module:fs.readFileSync(new URL('./public/pkg/picisr_web_bg.wasm',import.meta.url))});
 const nav=new PlotViewport();nav.zoom(.5,.5,.7);
 assert(Math.abs(nav.bounds()[2]-.85)<1e-12);nav.pan(.1,0);
@@ -17,8 +17,13 @@ if(m.potential_length_lambda_de){
 }
 const typed=(file,Type)=>{const b=fs.readFileSync(new URL(file,root));return new Type(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
 const x=typed(m.positions_file,Uint16Array),phi=typed(m.potential_file,Int16Array),s=typed(m.signal_file,Float32Array);
+const before=Array.from(s.slice(0,16));
+const slow=ion_lowpass(s,m.signal_dt_s,30000);
+assert.equal(slow.length,s.length);assert(slow[0]!==slow[0]&&slow[slow.length-1]!==slow[slow.length-1]);
+assert(slow.subarray(Math.floor(slow.length/3),Math.floor(2*slow.length/3)).every(Number.isFinite));
+assert.deepEqual(Array.from(s.slice(0,16)),before);
 const r=new Replay(x,phi,m.pool_per_species,m.field_grid,m.length_lambda_de,10,m.phi_quant_scale);
-for(const frame of [16,100.5,700.25,1022.9]){
+for(const frame of [16,100.5,700.25,m.frames-1.1]){
  const available=r.points(frame,2*m.pool_per_species,true,true);let ne=0,ni=0;
  for(let j=2;j<available.length;j+=4){if(available[j]<.5)ne++;else ni++;}
  for(const count of [10,100,1000]){

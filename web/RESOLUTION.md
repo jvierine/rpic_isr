@@ -24,8 +24,13 @@ number change, keeping 8 particles/cell/species:
 Short pilots cover 0.1 ms, not equilibrium. At matched 0.1 ms, the original
 128² run changed energy by +0.190996%, versus +0.027173% for the 256² pilot.
 These are short-time observations, not extrapolated long-run guarantees.
-The 512² pilot is pending. Full captures use 10 ms burn-in plus 4 ms record;
-the full 256² capture is running. Scripts refuse to overwrite prior HDF5.
+The 512² pilot finished with +0.004476% energy change at matched 0.1 ms;
+its 828.45-s runtime includes frequent CPU diagnostics and is not a reliable
+production ETA. The full 256² validation (10 ms burn + 4 ms record) is running.
+The user subsequently requested 4× longer recordings and a low-pass voltage
+overlay. New production captures use 4096 dense frames and 16 ms record,
+with unchanged 10 ms burn-in. The low case is running on GPU1; the 512² high
+case follows it. Scripts refuse to overwrite prior HDF5.
 
 Before replacing the public high-density recording: check finite complete
 records, energy and temperature histories, early/late spectral stationarity,
@@ -41,3 +46,11 @@ Its gpu2d.rs SHA256 is
 5d689e1384bdd34c87ce5c2ccb37109721fcce1a5dde9df1c769fc4aa30f53f8,
 matching the committed source. Capture metadata may say `unrecorded` because
 the build did not set RPIC_BUILD_REV; do not replace that with an invented ID.
+
+The extended native-crop capture binary uses build tag
+`extended-web-native-gaussian-v1` and SHA256
+5e7cafea4bfd3d267cb56abcd4b484b0fc72b2d034e6f267383220dca0a16bcf.
+Its gpu2d.rs SHA256 is
+a52363904a1dea81d932fc0fac006046b1e146ac205bcf10b56bf816295bc278.
+Running old processes retain their original binary; rebuilding did not
+interrupt the 256² validation job.

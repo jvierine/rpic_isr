@@ -319,9 +319,49 @@ impl Welch {
     }
 }
 
+/// Zero-phase, finite Gaussian FIR. Cutoff is the -3 dB power frequency.
+/// Linear FFT convolution, not circular filtering; unsupported edges are NaN.
+#[wasm_bindgen]
+pub fn ion_lowpass(input: &[f32], dt: f64, cutoff_hz: f64) -> Result<Vec<f32>, JsValue> {
+    if input.len()%2 != 0 || !dt.is_finite() || dt<=0. || !cutoff_hz.is_finite() || cutoff_hz<=0. || cutoff_hz>=0.5/dt {
+        return Err(JsValue::from_str("Invalid low-pass parameters"));
+    }
+    let n=input.len()/2;
+    let sigma=std::f64::consts::LN_2.sqrt()/(2.*std::f64::consts::PI*cutoff_hz);
+    let radius=(6.*sigma/dt).ceil() as usize;
+    if n<=2*radius { return Err(JsValue::from_str("Record too short for low-pass support")); }
+    let size=(n+2*radius).next_power_of_two();
+    let mut a=vec![rustfft::num_complex::Complex32::new(0.,0.);size];
+    let mut h=a.clone();
+    for j in 0..n { a[j]=rustfft::num_complex::Complex32::new(input[2*j],input[2*j+1]); }
+    let mut total=0.;
+    for j in 0..=2*radius {
+        let x=(j as f64-radius as f64)*dt/sigma;
+        h[j].re=(-0.5*x*x).exp() as f32;total+=h[j].re;
+    }
+    for v in &mut h { v.re/=total; }
+    let mut planner=rustfft::FftPlanner::<f32>::new();
+    let forward=planner.plan_fft_forward(size);forward.process(&mut a);forward.process(&mut h);
+    for j in 0..size { a[j]*=h[j]; }
+    planner.plan_fft_inverse(size).process(&mut a);
+    let mut out=vec![f32::NAN;input.len()];
+    for j in radius..n-radius { let v=a[j+radius]/size as f32;out[2*j]=v.re;out[2*j+1]=v.im; }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn lowpass_rejects_electron_tone_without_phase_shift_or_edge_padding() {
+        let n=16384;let dt=1e-7;let fc: f64=30000.;
+        for (frequency,expected) in [(10000.,2f64.powf(-0.5*(10000./fc).powi(2))),(1000000.,0.)] {
+            let input:Vec<f32>=(0..n).flat_map(|j| {let t=2.*std::f64::consts::PI*frequency*j as f64*dt;[t.cos() as f32,t.sin() as f32]}).collect();
+            let y=ion_lowpass(&input,dt,fc).unwrap();
+            assert!(y[0].is_nan() && y[y.len()-1].is_nan());
+            for j in 1000..n-1000 { assert!((y[2*j] as f64-input[2*j] as f64*expected).abs()<2e-5);assert!((y[2*j+1] as f64-input[2*j+1] as f64*expected).abs()<2e-5); }
+        }
+    }
     #[test]
     fn periodic_short_path() {
         assert!(

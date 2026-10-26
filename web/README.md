@@ -2,6 +2,23 @@
 
 Public route: https://juha.no/picisr/
 
+Pending longer recordings: the new capture mode supports 4096 dense frames
+and a 16 ms voltage record (4× the original lengths), with the same 10 ms
+burn-in. Native potential nodes are cropped before writing HDF5 to avoid
+multi-gigabyte full-box movies; crop geometry remains in metadata. The low
+recording is running on GPU1. Preserve the ongoing 256² validation on GPU0;
+the extended 512² high recording is queued after the low recording, not yet
+started. Do not label either longer recording deployed before verification.
+
+The pending frontend adds a Rust/Wasm, zero-phase Gaussian FIR overlay on
+the full complex voltage: thick blue/orange are filtered Re/Im, thin pale
+lines are unfiltered Re/Im. The cutoff is 30 kHz at -3 dB power. Linear FFT
+convolution avoids circular wrap, and unsupported edge intervals are omitted.
+The original signal and its Welch spectrum are not altered. A checkbox hides
+the overlay. Tests check gain/phase at 10 kHz, rejection at 1 MHz, omitted
+edges, and preservation of the input array. Browser QA passed locally with
+the original recording; deployment awaits the longer data.
+
 Spatial-resolution correction: the potential transport now crops native mesh
 nodes around the camera, without skipping nodes or resampling the data. The
 crop includes an interpolation halo and its own physical extent; particle
