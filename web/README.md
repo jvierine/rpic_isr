@@ -78,3 +78,17 @@ LinePlot and SeriesView work). The original checkout is untouched. Local
 adaptations: round point sprites in LinePlot and bilinear regular-grid field
 display. Numerical simulation values are not spatially filtered by those
 display adaptations. The vendored license is included.
+
+## Loading and plasma-line panel
+
+The loading bar aggregates the actual streamed byte counts for the Wasm module,
+preview, dense movie and voltage files. The small post-burn preview is shown
+while the full recording loads. Run `node web/test_loading.mjs` to check streamed
+buffers, aggregate progress, and rejection of failed or truncated downloads.
+
+A separate Rustplotlib/WebGL2 plasma-line panel shares the same browser Welch
+estimate as the ion-line panel. It uses a MHz frequency axis and masks the
+central ±0.2 MHz for display only. The recorded electron-frequency peaks are
+at −1.2740 and +1.2037 MHz for the default 8,192-point estimate. They are measured
+bins in this finite record, not fitted theoretical frequencies. `verify.mjs`
+checks both peaks in addition to integrated PSD power and the replay tests.

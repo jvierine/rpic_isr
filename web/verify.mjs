@@ -23,4 +23,11 @@ const p=w.spectrum();assert(p.every(v=>Number.isFinite(v)&&v>=0));
 const spectralPower=p.reduce((a,b)=>a+b,0)/(8192*m.signal_dt_s);
 const rawPower=s.reduce((a,b)=>a+b*b,0)/(s.length/2);
 assert(Math.abs(spectralPower/rawPower-1)<.25);
-console.log(JSON.stringify({passed:true,frames:m.frames,displayCounts:[10,100,1000],segments:w.segments(),spectralPower,rawPower}));
+const plasmaPeaksMHz=[];
+for(const sign of [-1,1]){
+ let peak=-1,power=-Infinity;
+ for(let j=0;j<p.length;j++){const f=(j-p.length/2)/(p.length*m.signal_dt_s)/1e6;if(sign*f>.6&&sign*f<2&&p[j]>power){power=p[j];peak=f;}}
+ assert(Number.isFinite(power)&&power>0);assert(Math.abs(peak)>.7&&Math.abs(peak)<1.7);
+ plasmaPeaksMHz.push(peak);
+}
+console.log(JSON.stringify({passed:true,frames:m.frames,displayCounts:[10,100,1000],segments:w.segments(),spectralPower,rawPower,plasmaPeaksMHz}));

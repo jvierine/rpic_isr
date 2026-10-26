@@ -1,10 +1,15 @@
 import init, {Replay, Welch, ScientificPlot, PlasmaView} from './pkg/picisr_web.js?v=9ddd504a6ec4';
+import {ProgressDownloads} from './loading.js?v=ebb138dbfd70';
 const $=id=>document.getElementById(id);
 let meta, replay, signal, spectrum=[], running=true, frame=16, last=0, pending=0, welch;
 const state={ready:false,frame:16,shown:0,segments:0};
 // Small browser-QA surface: no file paths or generator metadata are rendered.
 window.picisrState=state;
 const status=(text,error=false)=>{$('statusText').textContent=text;$('status').classList.toggle('error',error);};
+const downloads=new ProgressDownloads(({loaded,total,fraction})=>{
+ $('loadingProgress').value=Math.min(fraction*100,99.9);
+ $('loadingDetails').textContent=`${Math.floor(fraction*100)}% · ${(loaded/1048576).toFixed(1)} / ${(total/1048576).toFixed(1)} MB`;
+});
 const dialog=$('help');$('helpOpen').onclick=()=>dialog.showModal();
 $('plotsToggle').onclick=()=>{const panel=$('plots');panel.hidden=!panel.hidden;$('plotsToggle').setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){drawSignal();drawSpectrum();}};
 $('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();};
@@ -34,7 +39,21 @@ function curve(plot,values,colour){const rgb=colour.match(/\w\w/g).map(v=>parseI
 let waveform;
 function prepareWaveform(){const duration=(meta.frames-1)*meta.frame_dt_s;const n=Math.min(signal.length/2,Math.floor((duration-meta.signal_first_s)/meta.signal_dt_s));let amplitude=0;const real=[],imag=[];for(let j=0;j<n;j++){const t=(meta.signal_first_s+j*meta.signal_dt_s)*1e6;real.push([t,signal[2*j]]);imag.push([t,signal[2*j+1]]);amplitude=Math.max(amplitude,Math.abs(signal[2*j]),Math.abs(signal[2*j+1]));}waveform={real,imag,amplitude:amplitude*1.08,duration};}
 function drawSignal(){if(!waveform||$('plots').hidden)return;const p=chart($('signal'),0,waveform.duration*1e6,-waveform.amplitude,waveform.amplitude,'Time after burn-in [µs]','Normalized amplitude');curve(p,waveform.real,'#126ca4');curve(p,waveform.imag,'#b64a16');const t=frame*meta.frame_dt_s*1e6;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
-function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=Number($('band').value),n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-55;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');}
+function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=Number($('band').value),n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-55;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');drawPlasmaLine();}
+function drawPlasmaLine(){
+ if(!meta||$('plots').hidden)return;
+ const n=spectrum.length,points=[];let peak=-100;
+ for(let j=0;j<n;j++){
+  const f=(j-n/2)/(n*meta.signal_dt_s)/1e6;
+  if(Math.abs(f)>2)continue;
+  const power=10*Math.log10(Math.max(spectrum[j],1e-20));
+  if(Math.abs(f)<.2){points.push([f,NaN]);continue;}
+  points.push([f,power]);peak=Math.max(peak,power);
+ }
+ const ymax=Math.ceil(peak/5)*5+5,ymin=ymax-40;
+ const p=chart($('plasmaLine'),-2,2,ymin,ymax,'Frequency offset [MHz]','PSD [dB re 1 Hz⁻¹]');
+ if(points.length)curve(p,points,'#762a83');
+}
 async function calculate(){
  if(!signal)return;const token=++pending;if(welch)welch.free();
  const n=Number($('fft').value);welch=new Welch(n,meta.signal_dt_s);spectrum=[];drawSpectrum();
@@ -51,9 +70,17 @@ $('contrast').oninput=()=>{$('contrastLabel').textContent=`${Number($('contrast'
 $('band').onchange=drawSpectrum;$('fft').onchange=calculate;$('recalculate').onclick=calculate;
 window.addEventListener('resize',()=>{drawSpectrum();drawSignal();});
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();state.ready=false;status('The graphics context was lost. Reload to restore the recording.',true);});
-async function loadBinary(url){const r=await fetch(url);if(!r.ok)throw Error(`Recording download failed (${r.status})`);return r.arrayBuffer();}
+const loadBinary=url=>downloads.load(url);
 try{
- await init({module_or_path:new URL('./pkg/picisr_web_bg.wasm?v=15b074a7f9bb',import.meta.url)});plasmaView=new PlasmaView(canvas,$('particles'));const response=await fetch('data/metadata.json');if(!response.ok)throw Error('Recording metadata is not available');meta=await response.json();
+ const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=15b074a7f9bb',import.meta.url);
+ const response=await fetch('data/metadata.json');if(!response.ok)throw Error('Recording metadata is not available');meta=await response.json();
+ downloads.plan(wasmUrl);
+ downloads.plan(`data/${meta.preview_positions_file}`,2*meta.pool_per_species*8);
+ downloads.plan(`data/${meta.preview_potential_file}`,2*meta.field_grid**2*2);
+ downloads.plan(`data/${meta.positions_file}`,meta.frames*meta.pool_per_species*8);
+ downloads.plan(`data/${meta.potential_file}`,meta.frames*meta.field_grid**2*2);
+ downloads.plan(`data/${meta.signal_file}`,meta.signal_samples*8);
+ status('Loading WebAssembly…');await init({module_or_path:await loadBinary(wasmUrl)});plasmaView=new PlasmaView(canvas,$('particles'));
  const [previewPositions,previewPotential]=await Promise.all([loadBinary(`data/${meta.preview_positions_file}`),loadBinary(`data/${meta.preview_potential_file}`)]);
  replay=new Replay(new Uint16Array(previewPositions),new Int16Array(previewPotential),meta.pool_per_species,meta.field_grid,meta.length_lambda_de,10,meta.phi_quant_scale);
  frame=0;running=false;state.ready=true;requestAnimationFrame(animate);
@@ -69,6 +96,6 @@ try{
  $('recordLength').textContent=`${(meta.signal_samples*meta.signal_dt_s*1e3).toFixed(2)} ms`;
  for(const id of ['play','restart','scrub','recalculate'])$(id).disabled=false;
  frame=16;running=true;state.ready=true;state.totalParticles=meta.particles_per_species*2;state.clipDurationUs=(meta.frames-1)*meta.frame_dt_s*1e6;
- status('Recorded GPU data · 10 ms burn-in · display controls do not change the physics');$('status').classList.add('ready');
+ $('loadingProgress').value=100;$('loadingDetails').textContent='100%';status('Loaded');$('status').classList.add('ready');
  drawSpectrum();calculate();
 }catch(e){console.error(e);status(e.message,true);}

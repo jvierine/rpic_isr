@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {ProgressDownloads} from './public/loading.js';
+const snapshots=[];const loader=new ProgressDownloads(p=>snapshots.push(p));
+loader.plan('a',4);loader.plan('b',6);
+const fetcher=async url=>new Response(new ReadableStream({start(c){for(const v of url==='a'?[[1,2],[3,4]]:[[5,6,7],[8,9,10]])c.enqueue(new Uint8Array(v));c.close();}}),{headers:{'content-length':url==='a'?'4':'6'}});
+assert.deepEqual([...new Uint8Array(await loader.load('a',fetcher))],[1,2,3,4]);
+assert.equal(snapshots.at(-1).fraction,.4);
+await loader.load('b',fetcher);assert.equal(snapshots.at(-1).fraction,1);
+assert.equal(snapshots.at(-1).loaded,10);
+const transfers=snapshots.filter(p=>p.loaded);assert(transfers.every((p,j)=>j===0||p.fraction>=transfers[j-1].fraction));
+await assert.rejects(loader.load('bad',async()=>new Response('',{status:404})),/404/);
+loader.plan('short',4);await assert.rejects(loader.load('short',async()=>new Response(new Uint8Array(2))),/Incomplete/);
+console.log('PASS: streamed byte counts, aggregate progress, complete buffers, and failed/truncated downloads');
