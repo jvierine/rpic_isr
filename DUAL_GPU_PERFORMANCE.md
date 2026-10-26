@@ -4,7 +4,11 @@
 
 The packed solver is now compiled and GPU-tested on Seid. The old long job
 was stopped without deleting its prior data. A new bounded high-resolution
-run was launched in `/scratch/data/juha/rpic_isr/results/high512-2hour-ijBorK`.
+run is in `/scratch/data/juha/rpic_isr/results/high512-2hour-8y3Ktw`
+(PID 2691000 at launch). Its short predecessor `high512-2hour-ijBorK` was
+stopped early, with diagnostics preserved, to shorten the target from 4 to 3 ms
+after initial production throughput measured about 5 ms/step rather than the
+3.7 ms/step short benchmark. The resolution and plasma parameters are unchanged.
 It is running, not a completed spectrum or a deployed viewer replacement.
 
 Matched 512²/8ppc/physical-O+ tests use seed 9100, 2,973 steps (about 10 us),
@@ -49,7 +53,7 @@ stationarity check, anisotropy and radial-kurtosis checks gate thermostat
 activation. Separate mean-preserving weak velocity controls target 2000 K
 electrons and 1000 K ions, with 2 ms relaxation time. After at least 0.5 ms
 settling, stable temperatures within 1% of their respective targets gate the
-4 ms signal recording. This is an operational two-temperature stationarity
+3 ms signal recording. This is an operational two-temperature stationarity
 criterion, not proof of kinetic equilibrium. The radial-kurtosis diagnostic
 assumes negligible mean drift. Thermostat strengths need independent spectral
 bias tests before quantitative ISR interpretation.

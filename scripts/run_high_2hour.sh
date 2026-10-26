@@ -17,7 +17,7 @@ timeout --signal=TERM --kill-after=5s 7190s target/release/rpic_dual \
   --devices 0 --thermostat after-equilibrium \
   --cells 512 --ppc 8 --bragg-mode 2 --density 1e11 \
   --te 2000 --ti 1000 --ion-mass-amu 16 --radar-mhz 440.2 --dt .06 \
-  --burn-ms 1 --duration-ms 4 --sample-us .02 --window 32768 \
+  --burn-ms 1 --duration-ms 3 --sample-us .02 --window 32768 \
   --equilibrium-window-ms .25 --equilibrium-tolerance .005 \
   --thermostat-tau-ms 2 --thermostat-settle-ms .5 \
   --max-energy-drift-percent 1 --max-wall-seconds 6900 \

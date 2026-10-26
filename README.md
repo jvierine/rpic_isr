@@ -8,7 +8,7 @@ on two GPUs. The legacy matched test took 63.45 s, versus 11.42 s for the initia
 packed version (2,973 steps). Tiled deposition was tested and was slower here;
 it remains an opt-in experiment. See [performance and controls](DUAL_GPU_PERFORMANCE.md).
 The two-hour preset keeps 512² cells, two Bragg wavelengths, 8 particles/cell/species,
-physical O+, initial Te=2000 K/Ti=1000 K, and targets a **4 ms**, not 16 ms,
+physical O+, initial Te=2000 K/Ti=1000 K, and targets a **3 ms**, not 16 ms,
 post-burn record. A thermostat modifies fluctuation statistics; neither its
 stationarity gate nor these short regressions establish ISR convergence.
 
