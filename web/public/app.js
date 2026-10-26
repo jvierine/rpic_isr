@@ -78,7 +78,7 @@ function drawSignal(){if(!waveform||$('plots').hidden)return;const duration=wave
  const [real,imag,slowReal,slowImag]=waveform.traces,show=$('lowpass').checked;curve(p,real,show?'#8dbbd6':'#126ca4',1);curve(p,imag,show?'#d8ad89':'#b64a16',1);
  if(show){curve(p,slowReal,'#126ca4',2.5);curve(p,slowImag,'#b64a16',2.5);}
  const t=frame*meta.frame_dt_s*1e3;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
-function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=Number($('band').value),n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-55;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');drawPlasmaLine();}
+function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=Number($('band').value),n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-75;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');drawPlasmaLine();}
 function drawPlasmaLine(){
  if(!meta||$('plots').hidden)return;
  const n=spectrum.length,points=[],band=meta.plasma_band_mhz||2;let peak=-100;
@@ -88,7 +88,7 @@ function drawPlasmaLine(){
   const power=10*Math.log10(Math.max(spectrum[j],1e-20));
   points.push([f,power]);peak=Math.max(peak,power);
  }
- const ymax=Math.ceil(peak/5)*5+5,ymin=ymax-60;
+ const ymax=Math.ceil(peak/5)*5+5,ymin=ymax-80;
  const p=chart($('plasmaLine'),-band,band,ymin,ymax,'Frequency offset [MHz]','PSD [dB re 1 Hz⁻¹]');
  if(points.length)curve(p,points,'#762a83');
 }
