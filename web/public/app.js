@@ -74,7 +74,6 @@ function drawPlasmaLine(){
   const f=(j-n/2)/(n*meta.signal_dt_s)/1e6;
   if(Math.abs(f)>band)continue;
   const power=10*Math.log10(Math.max(spectrum[j],1e-20));
-  if(Math.abs(f)<.2){points.push([f,NaN]);continue;}
   points.push([f,power]);peak=Math.max(peak,power);
  }
  const ymax=Math.ceil(peak/5)*5+5,ymin=ymax-40;
