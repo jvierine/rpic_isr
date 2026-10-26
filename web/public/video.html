@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>PIC ISR video preview</title>
+<style>body{margin:20px;background:#e9e4d6;color:#263437;font:18px system-ui}button,a{font:inherit;margin-right:16px}canvas#output{display:block;width:min(100%,1280px);height:auto;margin-top:20px}#scratch{position:absolute;left:-10000px;top:0}progress{width:300px}</style>
+<h1>PIC ISR video preview</h1><button id="render" disabled>Render 60-second preview</button><progress id="progress" max="1800" value="0"></progress><span id="status">Loading recordings…</span><a id="download" hidden>Download rendered video</a>
+<canvas id="output" width="1920" height="1080" aria-label="Video preview with particle motion, scattered voltage and both ISR spectra"></canvas><div id="scratch"></div>
+<script type="module" src="video-export.js"></script></html>

@@ -1,5 +1,17 @@
 # PIC ISR web replay
 
+## Video preview export
+
+With local replay assets and built Wasm present, serve `web/public` locally and
+open `video.html` in a WebCodecs-capable Chromium browser. It renders the existing
+low/high recordings and Rustplotlib plots into 1800 deterministic 1920x1080
+frames at 30 fps, with 30 seconds per density. It does not record wall-clock UI
+playback and does not upload to YouTube. Package the downloaded Annex-B stream
+with `bash scripts/package_video_preview.sh INPUT.h264 OUTPUT.mp4`.
+The description in `web/youtube-description.txt` distinguishes the current
+numerically heated high-density diagnostic from the newer running simulation.
+Inspect the exact MP4 and get user preview approval before publication.
+
 Public route: https://juha.no/picisr/
 
 The accepted longer low-density record has 4096 dense frames (348.42 us)

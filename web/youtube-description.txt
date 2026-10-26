@@ -1,0 +1,28 @@
+Collective Thomson Scattering: Electrons, Ions and Incoherent Scatter Radar
+
+Interactive demonstration: https://juha.no/picisr/
+Simulation and viewer source code: https://github.com/jvierine/rpic_isr
+
+This demonstration connects the motion of electrons and ions to the complex scattered signal and the ion-line and plasma-line spectra of an incoherent scatter radar (ISR). It compares electron densities of 10^10 and 10^11 m^-3, with initial electron temperature Te = 2000 K and ion temperature Ti = 1000 K. These are distinct temperatures, not Te = Ti.
+
+COLLECTIVE THOMSON SCATTERING
+Electrons scatter the incident radar wave. Their scattered fields add with phases set by electron position and the scattering wave vector. The normalized complex baseband signal is proportional to a Fourier component of electron density: a(t) ~ sum_j exp[-i k_B x_j(t)], where k_B = 4*pi*f0/c for monostatic backscatter. Here f0 = 440.2 MHz. This is a normalized complex amplitude, not a calibrated receiver voltage in volts. The full simulated electron population contributes; the particles shown are only a display subset in a 10 by 10 electron-Debye-length view.
+
+The scattering is collective because electric fields couple electron and ion motion: the density fluctuations are not simply those of independent ballistic electrons. Ions affect the scattered electron-density signal through this self-consistent plasma response.
+
+LANGMUIR WAVES AND THE PLASMA LINES
+Langmuir waves are rapid electron-density oscillations against the much slower ion background, with an electrostatic restoring force. They produce the positive- and negative-frequency plasma-line features. Their frequency is near the electron plasma frequency, with a finite-temperature, wave-number-dependent correction. Increasing density raises the plasma frequency approximately as sqrt(ne). At finite k*lambda_De, thermal dispersion and Landau damping also change the position and breadth of the response. For these two cases k_B*lambda_De is approximately 0.57 and 0.18, respectively: this is not just a rescaled frequency axis.
+
+ION-ACOUSTIC FLUCTUATIONS AND THE ION LINE
+The slower, coupled electron-ion density fluctuations form the ion line near zero frequency. Electron pressure and ion inertia underlie the ion-acoustic response; at Te/Ti = 2 it can be appreciably damped, so it should not be imagined as one perfectly coherent sinusoid. These slower fluctuations are easier to follow in the complex scattered amplitude, especially in its 30 kHz low-pass overlay, than in the rapid electron motion. The thin curves show the full real and imaginary signal; the thicker curves show its low-pass components. The low-pass overlay is for visualization only and is not applied to the spectra.
+
+SIMULATION
+The model is an unmagnetized, electrostatic, periodic 2D2V particle-in-cell plasma: two position and two velocity coordinates, electrons and singly charged oxygen ions, the physical oxygen-ion/electron mass ratio, quadratic TSC deposition/interpolation, explicit leapfrog particle updates, and an FFT Poisson solve. It is implemented in Rust and CUDA; the interactive viewer uses Rust/WebAssembly/WebGL. The background is electric potential, not electric-field magnitude. Particle positions and the potential are interpolated between recorded snapshots for display.
+
+The spectra use the full post-burn-in complex signal: 16 ms for the low-density recording and 4 ms for the existing high-density diagnostic recording. Hann-windowed periodograms are averaged with 50% overlap; overlapping windows are not independent realizations. The particle animation covers only a short initial excerpt of the recording and is slowed enormously relative to physical time. The MHz view retains the central ion line as well as both plasma lines.
+
+PURPOSE AND LIMITATIONS
+This is a qualitative teaching demonstration of how collective plasma motion produces ISR signals, not a quantitatively converged ISR spectrum or an instrument simulation. There is no receiver-noise model. Each dot represents a computational macroparticle rather than an individual physical electron or ion. The low-density recording has about 0.57% total-energy excursion. The existing high-density recording is a numerically heated diagnostic (about 26.6% total-energy excursion); it is included to illustrate the dynamics and spectral features, not as a validated equilibrium benchmark. Its initial temperatures are not maintained throughout the run. A refined, energy-monitored replacement is being developed. Neither recording shown here uses the new thermostat implementation.
+
+Code: https://github.com/jvierine/rpic_isr
+Try the interactive demonstration: https://juha.no/picisr/
