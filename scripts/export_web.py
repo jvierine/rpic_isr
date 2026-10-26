@@ -23,7 +23,7 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     phi = f["potential_kbte_e"][:]
     raw = f["raw_signal"][:]
     assert x.shape == (1024, 8192, 2)
-    assert phi.shape == (1024, 128, 128)
+    assert phi.shape == (1024, config["cells"], config["cells"])
     assert all(np.isfinite(a).all() for a in (x, phi, raw))
     assert x.min() >= 0 and x.max() <= scales["length"] * (1 + 1e-6)
     assert config["burn_ms"] >= 10
@@ -32,8 +32,12 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     assert np.array_equal(raw[:, 1], sf["raw/0/imag"][:])
     diagnostics = sf["diagnostics/0"][:]
     energy = float(100 * np.max(np.abs(diagnostics[:, 1] / diagnostics[0, 1] - 1)))
-    # Shared even grid nodes retain the potential's periodic coordinate origin.
-    field = phi[:, ::2, ::2]
+    # Crop, never decimate: retain native nodes around the fixed 10-lambda camera.
+    # A power-of-two crop includes interpolation halo while limiting download size.
+    dx = scales["length"] / config["cells"]
+    grid = min(config["cells"], 2**int(np.ceil(np.log2(10/dx+2))))
+    start = (config["cells"]-grid)//2
+    field = phi[:, start:start+grid, start:start+grid]
     quant_scale = float(np.max(np.abs(field)))
     display_scale = float(np.quantile(np.abs(field), .97))
     encoded_x = np.rint(x / scales["length"] * 65535).clip(0, 65535).astype("<u2")
@@ -65,7 +69,10 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     metadata = dict(
         positions_file=files["positions"], potential_file=files["potential"], signal_file=files["signal"],
         preview_positions_file=files["preview_positions"],preview_potential_file=files["preview_potential"],
-        frames=1024, pool_per_species=4096, field_grid=64,
+        frames=1024, pool_per_species=4096, field_grid=grid,
+        potential_length_lambda_de=grid*dx,
+        potential_grid_spacing_lambda_de=dx,
+        potential_crop_start_node=start,
         length_lambda_de=scales["length"], lambda_de_m=scales["lambda_de"],
         particles_per_species=config["cells"]**2*config["ppc"],
         frame_dt_s=scales["dt_s"]*8, burn_ms=config["burn_ms"],

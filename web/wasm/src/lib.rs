@@ -38,7 +38,11 @@ impl PlasmaView {
     ) -> Result<(), JsValue> {
         self.canvas.set_width((width * dpr).round() as u32);
         self.canvas.set_height((height * dpr).round() as u32);
-        self.field.set_data(64, 64, field)?;
+        let grid = (field.len() as f64).sqrt() as usize;
+        if grid * grid != field.len() || grid < 2 {
+            return Err(JsValue::from_str("Potential grid must be square"));
+        }
+        self.field.set_data(grid as u32, grid as u32, field)?;
         self.field.set_scale(-scale, scale, 0, 0.1, 0)?;
         let palette: &[f32] = if visible {
             &[

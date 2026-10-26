@@ -23,7 +23,7 @@ const canvas=$('plasma');let plasmaView;
 function renderPlasma(){
  const points=replay.points(frame,Number($('count').value),$('electrons').checked,$('ions').checked);
  const r=canvas.getBoundingClientRect();
- plasmaView.draw(replay.field(frame),points,r.width,r.height,Math.min(devicePixelRatio||1,2),meta.length_lambda_de,meta.phi_display_scale/Number($('contrast').value),$('potential').checked);
+ plasmaView.draw(replay.field(frame),points,r.width,r.height,Math.min(devicePixelRatio||1,2),meta.potential_length_lambda_de||meta.length_lambda_de,meta.phi_display_scale/Number($('contrast').value),$('potential').checked);
  let ne=0,ni=0;for(let j=2;j<points.length;j+=4){if(points[j]<.5)ne++;else ni++;}
  $('shown').textContent=`${ne} electrons · ${ni} ions`;
  state.frame=frame;state.shown=ne+ni;state.electrons=ne;state.ions=ni;
@@ -93,6 +93,8 @@ const annotationObserver=new ResizeObserver(annotationLayout);annotationObserver
 const loadBinary=url=>downloads.load(url);
 function densityText(n){const exponent=Math.round(Math.log10(n)),digits='⁰¹²³⁴⁵⁶⁷⁸⁹';return `10${String(exponent).split('').map(v=>digits[Number(v)]).join('')} m⁻³`;}
 function updateRunHelp(){
+ for(const element of document.querySelectorAll('.population-count'))element.textContent=meta.particles_per_species.toLocaleString();
+ $('fieldGrid').textContent=`${meta.field_solver_grid}×${meta.field_solver_grid}`;
  for(const element of document.querySelectorAll('.run-density'))element.textContent=densityText(meta.density_m3);
  $('selectedParameters').textContent=`Selected run: nₑ = ${densityText(meta.density_m3)}; Tₑ = ${meta.te_K.toLocaleString()} K; Tᵢ = ${meta.ti_K.toLocaleString()} K; initial Bragg kλDe = ${meta.k_lambda_de.toFixed(3)}. Physical O⁺/electron mass ratio ${meta.mass_ratio.toFixed(0)}.`;
  $('debyeLengthCm').textContent=(meta.lambda_de_m*100).toFixed(3);
@@ -116,7 +118,7 @@ async function loadRun(id){
  if(replay){replay.free();replay=null;}
  downloads=makeDownloads();
  try{
- const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=6c98680c8f0b',import.meta.url);
+ const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=667b2a3c9145',import.meta.url);
  const metadataUrl=new URL(run.metadata,location.href);
  const response=await fetch(metadataUrl,{cache:'no-cache'});if(!response.ok)throw Error('Recording metadata is not available');meta=await response.json();
  const asset=name=>new URL(meta[name],metadataUrl);

@@ -28,8 +28,8 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let trace = module.load_function("trace2")?;
     let web_path = std::env::var("RPIC_WEB_CAPTURE").ok();
     anyhow::ensure!(
-        web_path.is_none() || (seeds.len() == 1 && c.cells == 128 && c.ppc == 8),
-        "Web capture requires one 128x128, 8 ppc realization"
+        web_path.is_none() || (seeds.len() == 1 && c.cells*c.cells*c.ppc >= 4096 && (c.cells*c.cells*c.ppc).is_multiple_of(4096)),
+        "Web capture requires one realization with a particle count divisible by 4096"
     );
     if let Some(ref path) = web_path {
         anyhow::ensure!(
@@ -310,7 +310,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                 "metadata_json",
                 serde_json::to_vec(
                     &serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),
-            "capture":"post-burn positions and endpoint potential; stride 8; fixed IDs p=j*32 for each species",
+            "capture":"post-burn positions and endpoint potential; stride 8; fixed IDs p=j*(particles_per_species/4096) for each species",
             "solver":"explicit 2D2V TSC CUDA leapfrog, not the implicit prototype","seed":seeds[0]}),
                 )?,
             ),

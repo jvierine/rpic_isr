@@ -2,6 +2,18 @@
 
 Public route: https://juha.no/picisr/
 
+Spatial-resolution correction: the potential transport now crops native mesh
+nodes around the camera, without skipping nodes or resampling the data. The
+crop includes an interpolation halo and its own physical extent; particle
+coordinates still refer to the full simulation box. This avoids the former
+every-other-node spatial aliasing while retaining small downloads. The solver
+grid spacing, crop origin and extent are recorded in metadata and checked by
+the Wasm transport tests. Old raw HDF5 recordings remain unchanged.
+
+The high-density heating problem is not fixed by this display correction.
+Matched 256²/512², 8-ppc short pilots are being tested separately before a
+replacement 10-ms-burn/4-ms-record capture is accepted.
+
 The run selector retains the original density 10^10 m^-3 case and adds the
 10^11 m^-3 diagnostic recording (seed 8300). The latter is explicitly flagged:
 26.5735% maximum energy excursion, final Te 2802.1 K and Ti 1039.7 K; Te rises
@@ -58,8 +70,8 @@ the underlying coordinates or dynamics.
 The dense movie spans 87.042 µs after burn-in (1,024 frames, 85.084 ns cadence).
 It records fixed IDs `p=j*32`, j=0…4095, per species. The camera sees a subset
 of those IDs, not a freshly resampled particle cloud. Both species share one
-clock. Positions are u16-quantized over the full box and the 64² display field
-is i16-quantized using one fixed scale. Authoritative output stays float32 HDF5.
+clock. Positions are u16-quantized over the full box and the native-node cropped
+display field is i16-quantized using one fixed scale. Authoritative output stays float32 HDF5.
 Field and particle interpolation is display-only, not extra PIC steps.
 
 The mesh Fourier electron-density mode, corrected for the TSC window, supplies

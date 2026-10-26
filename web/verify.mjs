@@ -9,6 +9,12 @@ assert(nav.bounds()[0]>.15);assert(nav.zoom_box(.1,.2,.8,.9));
 nav.reset();assert.deepEqual(Array.from(nav.bounds()),[0,0,1,1]);nav.free();
 const root=new URL(process.argv[2]||'./public/data/',import.meta.url);
 const m=JSON.parse(fs.readFileSync(new URL('metadata.json',root),'utf8'));
+if(m.potential_length_lambda_de){
+ assert(Math.abs(m.potential_grid_spacing_lambda_de-m.length_lambda_de/m.field_solver_grid)<1e-12);
+ assert(Math.abs(m.potential_length_lambda_de-m.field_grid*m.potential_grid_spacing_lambda_de)<1e-12);
+ assert(Math.abs((m.potential_crop_start_node+m.field_grid/2)*m.potential_grid_spacing_lambda_de-m.length_lambda_de/2)<1e-12);
+ assert(m.potential_length_lambda_de>10);
+}
 const typed=(file,Type)=>{const b=fs.readFileSync(new URL(file,root));return new Type(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
 const x=typed(m.positions_file,Uint16Array),phi=typed(m.potential_file,Int16Array),s=typed(m.signal_file,Float32Array);
 const r=new Replay(x,phi,m.pool_per_species,m.field_grid,m.length_lambda_de,10,m.phi_quant_scale);
