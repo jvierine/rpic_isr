@@ -26,6 +26,19 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let poisson = module.load_function("poisson2")?;
     let push = module.load_function("push2")?;
     let trace = module.load_function("trace2")?;
+    let web_path = std::env::var("RPIC_WEB_CAPTURE").ok();
+    anyhow::ensure!(
+        web_path.is_none() || (seeds.len() == 1 && c.cells == 128 && c.ppc == 8),
+        "Web capture requires one 128x128, 8 ppc realization"
+    );
+    if let Some(ref path) = web_path {
+        anyhow::ensure!(
+            !std::path::Path::new(path).exists(),
+            "Web capture already exists"
+        );
+    }
+    let web_positions = module.load_function("web_positions2")?;
+    let web_potential = module.load_function("web_potential2")?;
     let mut initial = Particles2::default();
     for &seed in seeds {
         let p = Particles2::new(c, s, seed);
@@ -70,6 +83,21 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
         2 * batches,
         stream.clone(),
     )?;
+    let web_fft = if web_path.is_some() {
+        Some(CudaFft::plan_2d(
+            ng,
+            ng,
+            cufftType::CUFFT_C2C,
+            stream.clone(),
+        )?)
+    } else {
+        None
+    };
+    let mut web_phi_freq = stream.alloc_zeros::<float2>(nn as usize)?;
+    let mut web_phi = stream.alloc_zeros::<float2>(nn as usize)?;
+    let mut web_points = stream.alloc_zeros::<float2>(8192)?;
+    let mut web_x = Vec::<f32>::new();
+    let mut web_fields = Vec::<f32>::new();
     let cfgp = LaunchConfig::for_num_elems((n * batches) as u32);
     let cfgg = LaunchConfig::for_num_elems((2 * nn * batches) as u32);
     let cfgf = LaunchConfig::for_num_elems((nn * batches) as u32);
@@ -125,6 +153,41 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                 .launch(cfgp)?;
         }
         fft.exec_c2c(&mut grid, &mut freq, FftDirection::Forward)?;
+        if web_path.is_some() && step >= s.burn_steps {
+            let elapsed = step - s.burn_steps;
+            if elapsed % 8 == 0 && elapsed / 8 < 1024 {
+                let pool = 4096i32;
+                unsafe {
+                    stream
+                        .launch_builder(&web_positions)
+                        .arg(&xe)
+                        .arg(&xi)
+                        .arg(&mut web_points)
+                        .arg(&n)
+                        .arg(&pool)
+                        .launch(LaunchConfig::for_num_elems(8192))?;
+                    stream
+                        .launch_builder(&web_potential)
+                        .arg(&freq)
+                        .arg(&mut web_phi_freq)
+                        .arg(&ng)
+                        .arg(&length)
+                        .launch(LaunchConfig::for_num_elems(nn as u32))?;
+                }
+                web_fft.as_ref().unwrap().exec_c2c(
+                    &mut web_phi_freq,
+                    &mut web_phi,
+                    FftDirection::Inverse,
+                )?;
+                web_x.extend(
+                    stream
+                        .clone_dtoh(&web_points)?
+                        .into_iter()
+                        .flat_map(|p| [p.x, p.y]),
+                );
+                web_fields.extend(stream.clone_dtoh(&web_phi)?.into_iter().map(|p| p.x));
+            }
+        }
         let record = if step >= s.burn_steps && step < s.burn_steps + s.steps {
             (step - s.burn_steps) as i32
         } else {
@@ -233,6 +296,43 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     }
     let voltage = stream.clone_dtoh(&obs)?;
     let positions = stream.clone_dtoh(&tracks)?;
+    if let Some(path) = web_path {
+        let frames = web_x.len() / 8192 / 2;
+        anyhow::ensure!(frames == 1024, "Incomplete web recording");
+        if let Some(parent) = std::path::Path::new(&path).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let f = hdf5::File::create(format!("{path}.tmp"))?;
+        for (name, data) in [
+            ("config_json", serde_json::to_vec(c)?),
+            ("scales_json", serde_json::to_vec(s)?),
+            (
+                "metadata_json",
+                serde_json::to_vec(
+                    &serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),
+            "capture":"post-burn positions and endpoint potential; stride 8; fixed IDs p=j*32 for each species",
+            "solver":"explicit 2D2V TSC CUDA leapfrog, not the implicit prototype","seed":seeds[0]}),
+                )?,
+            ),
+        ] {
+            f.new_dataset_builder().with_data(&data).create(name)?;
+        }
+        f.new_dataset::<f32>()
+            .shape([frames, 8192, 2])
+            .create("positions_lambda_de")?
+            .write_raw(&web_x)?;
+        f.new_dataset::<f32>()
+            .shape([frames, c.cells, c.cells])
+            .create("potential_kbte_e")?
+            .write_raw(&web_fields)?;
+        f.new_dataset::<f32>()
+            .shape([voltage.len(), 2])
+            .create("raw_signal")?
+            .write_raw(&voltage.iter().flat_map(|p| [p.x, p.y]).collect::<Vec<_>>())?;
+        f.flush()?;
+        drop(f);
+        std::fs::rename(format!("{path}.tmp"), path)?;
+    }
     for (b, run) in out.iter_mut().enumerate() {
         run.fast_trajectory_x = positions[b * frames as usize * 32..(b + 1) * frames as usize * 32]
             .iter()

@@ -54,3 +54,16 @@ extern "C" __global__ void push2(Pair* xe,Pair* ve,Pair* xi,Pair* vi,const Pair*
  int p=blockIdx.x*blockDim.x+threadIdx.x;if(p>=n*batches)return;const Pair* e=fields+2*(p/n)*ng*ng;
  move2(xe+p,ve+p,e,ng,length,-1,kick,drift);move2(xi+p,vi+p,e,ng,length,1/mu,kick,drift);
 }
+// Optional web recording: evenly indexed, fixed particle IDs, both species.
+extern "C" __global__ void web_positions2(const Pair* xe,const Pair* xi,Pair* out,int n,int pool) {
+ int j=blockIdx.x*blockDim.x+threadIdx.x;if(j>=2*pool)return;
+ int p=(j%pool)*(n/pool);out[j]=j<pool?xe[p]:xi[p];
+}
+// Same endpoint charge and Fourier Poisson operator as the explicit mover.
+extern "C" __global__ void web_potential2(const Pair* f,Pair* phi,int ng,float length) {
+ int j=blockIdx.x*blockDim.x+threadIdx.x,nn=ng*ng;if(j>=nn)return;
+ int x=j%ng,y=j/ng;float kx=6.283185307179586f*(x<=ng/2?x:x-ng)/length;
+ float ky=6.283185307179586f*(y<=ng/2?y:y-ng)/length,k2=kx*kx+ky*ky;
+ phi[j].x=k2==0?0:(f[nn+j].x-f[j].x)/(k2*nn);
+ phi[j].y=k2==0?0:(f[nn+j].y-f[j].y)/(k2*nn);
+}
