@@ -12,7 +12,8 @@ or spectral convergence. Wasm checks passed at 4096 frames, with 44 overlapping
 8192-point Hann windows and PSD integral 0.462093 vs raw power 0.463624.
 The original short data remains intact. The extended 512² high-density case
 is now running on GPU1 (10 ms burn + 16 ms record, 4096 dense frames).
-The ongoing 256² validation on GPU0 is preserved; the high menu entry still
+The completed 256² validation is preserved but not accepted (3.7624% energy
+excursion and unequal early/late plasma-band power); the high menu entry still
 selects the original short diagnostic run until the replacement passes.
 
 The frontend adds a Rust/Wasm, zero-phase Gaussian FIR overlay on

@@ -26,7 +26,13 @@ Short pilots cover 0.1 ms, not equilibrium. At matched 0.1 ms, the original
 These are short-time observations, not extrapolated long-run guarantees.
 The 512² pilot finished with +0.004476% energy change at matched 0.1 ms;
 its 828.45-s runtime includes frequent CPU diagnostics and is not a reliable
-production ETA. The full 256² validation (10 ms burn + 4 ms record) is running.
+production ETA. The full 256² validation (10 ms burn + 4 ms record) finished
+in 4917.45 s. All records are finite and transport checks passed, but energy
+excursion was 3.762401%, final Te/Ti 2109.60/1010.57 K, and recording temperature
+changes +1.389751%/+0.275036%. Early/late plasma-band power ratios were
+0.452747/1.080000. It is not accepted as the public replacement: lower drift
+than the original 128² case does not establish stationarity/convergence.
+Validation HDF5 is retained in results/web_resolution/validation_256.h5.
 The user subsequently requested 4× longer recordings and a low-pass voltage
 overlay. New production captures use 4096 dense frames and 16 ms record,
 with unchanged 10 ms burn-in. The low case completed: maximum energy excursion
