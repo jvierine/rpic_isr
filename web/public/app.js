@@ -76,7 +76,7 @@ function drawPlasmaLine(){
   const power=10*Math.log10(Math.max(spectrum[j],1e-20));
   points.push([f,power]);peak=Math.max(peak,power);
  }
- const ymax=Math.ceil(peak/5)*5+5,ymin=ymax-40;
+ const ymax=Math.ceil(peak/5)*5+5,ymin=ymax-60;
  const p=chart($('plasmaLine'),-band,band,ymin,ymax,'Frequency offset [MHz]','PSD [dB re 1 Hz⁻¹]');
  if(points.length)curve(p,points,'#762a83');
 }
