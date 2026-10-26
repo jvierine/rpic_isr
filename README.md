@@ -1,5 +1,12 @@
 # rpic_isr
 
+**New experimental implicit 2D2V solver:** float64 Rust CPU reference and
+float32 CUDA/cuFFT backend with matched discrete particle/field work. In a
+20,000-step GPU test, maximum energy excursion fell from 0.10134% (explicit)
+to 0.00000683% (implicit), at substantially higher cost per step. This is a
+numerical prototype, not a newly validated ISR spectrum. See
+[method, checked data, comparison plot, and limitations](IMPLICIT_2D.md).
+
 **2D2V extension:** `rpic_isr_2d` evolves `(x,y,vx,vy)` in a periodic square
 with a genuine two-dimensional FFT Poisson solve. The original `rpic_isr`
 executable and 1D results below are retained. See [the 2D model](TWO_DIMENSIONAL.md).
