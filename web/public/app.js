@@ -56,16 +56,28 @@ function chart(c,xmin,xmax,ymin,ymax,xlabel,ylabel){
 function curve(plot,values,colour,width=1.25){const rgb=colour.match(/\w\w/g).map(v=>parseInt(v,16)/255);plot.series(new Float64Array(values.flat()),...rgb,width,false);}
 let waveform;
 function prepareWaveform(){
- const duration=(meta.frames-1)*meta.frame_dt_s,n=Math.min(signal.length/2,Math.floor((duration-meta.signal_first_s)/meta.signal_dt_s));
+ const n=signal.length/2,duration=meta.signal_first_s+(n-1)*meta.signal_dt_s;
  const filtered=ion_lowpass(signal,meta.signal_dt_s,30000);
  let amplitude=0;const real=[],imag=[],slowReal=[],slowImag=[];
- for(let j=0;j<n;j++){const t=(meta.signal_first_s+j*meta.signal_dt_s)*1e6;real.push([t,signal[2*j]]);imag.push([t,signal[2*j+1]]);slowReal.push([t,filtered[2*j]]);slowImag.push([t,filtered[2*j+1]]);amplitude=Math.max(amplitude,Math.abs(signal[2*j]),Math.abs(signal[2*j+1]));}
+ for(let j=0;j<n;j++){const t=(meta.signal_first_s+j*meta.signal_dt_s)*1e3;real.push([t,signal[2*j]]);imag.push([t,signal[2*j+1]]);slowReal.push([t,filtered[2*j]]);slowImag.push([t,filtered[2*j+1]]);amplitude=Math.max(amplitude,Math.abs(signal[2*j]),Math.abs(signal[2*j+1]));}
  waveform={real,imag,slowReal,slowImag,amplitude:amplitude*1.08,duration};
 }
-function drawSignal(){if(!waveform||$('plots').hidden)return;const p=chart($('signal'),0,waveform.duration*1e6,-waveform.amplitude,waveform.amplitude,'Time after burn-in [µs]','Normalized amplitude');
- const show=$('lowpass').checked;curve(p,waveform.real,show?'#8dbbd6':'#126ca4',1);curve(p,waveform.imag,show?'#d8ad89':'#b64a16',1);
- if(show){curve(p,waveform.slowReal,'#126ca4',2.5);curve(p,waveform.slowImag,'#b64a16',2.5);}
- const t=frame*meta.frame_dt_s*1e6;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
+// Display-only extrema reduction: retain peaks at overview scale and recover
+// individual source samples on zoom. Never changes the signal used for the PSD.
+function signalTrace(values,lo,hi,pixels){
+ const dt=meta.signal_dt_s*1e3,first=values[0][0];
+ const start=Math.max(0,Math.floor((lo-first)/dt)-1),end=Math.min(values.length,Math.ceil((hi-first)/dt)+2);
+ const step=Math.max(1,Math.ceil((end-start)/Math.max(1,pixels))),out=[];
+ for(let j=start;j<end;j+=step){let min=j,max=j;for(let k=j;k<Math.min(j+step,end);k++){if(Number.isFinite(values[k][1])){if(!Number.isFinite(values[min][1])||values[k][1]<values[min][1])min=k;if(!Number.isFinite(values[max][1])||values[k][1]>values[max][1])max=k;}}
+  if(min<=max){out.push(values[min]);if(max!==min)out.push(values[max]);}else{out.push(values[max],values[min]);}}
+ return out;
+}
+function drawSignal(){if(!waveform||$('plots').hidden)return;const duration=waveform.duration*1e3,p=chart($('signal'),0,duration,-waveform.amplitude,waveform.amplitude,'Time after burn-in [ms]','Normalized amplitude');
+ const view=Array.from(p.viewport_bounds()),pixels=Math.ceil($('signal').clientWidth),key=JSON.stringify([view[0],view[2],pixels]);
+ if(waveform.cacheKey!==key){waveform.traces=[waveform.real,waveform.imag,waveform.slowReal,waveform.slowImag].map(v=>signalTrace(v,view[0]*duration,view[2]*duration,pixels));waveform.cacheKey=key;}
+ const [real,imag,slowReal,slowImag]=waveform.traces,show=$('lowpass').checked;curve(p,real,show?'#8dbbd6':'#126ca4',1);curve(p,imag,show?'#d8ad89':'#b64a16',1);
+ if(show){curve(p,slowReal,'#126ca4',2.5);curve(p,slowImag,'#b64a16',2.5);}
+ const t=frame*meta.frame_dt_s*1e3;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
 function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=Number($('band').value),n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-55;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');drawPlasmaLine();}
 function drawPlasmaLine(){
  if(!meta||$('plots').hidden)return;
