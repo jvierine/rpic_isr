@@ -1,5 +1,17 @@
 # rpic_isr
 
+**Packed 2D GPU solver and bounded high-resolution run:** the new experimental
+`rpic_dual` executable supports one/two GPUs, GPU-side moment reductions, live
+HDF5 energy diagnostics, and separate delayed electron/ion temperature controls.
+Matched 512² benchmarks favored one GPU: about 3.7 ms/step versus 5.0 ms/step
+on two GPUs. The legacy matched test took 63.45 s, versus 11.42 s for the initial
+packed version (2,973 steps). Tiled deposition was tested and was slower here;
+it remains an opt-in experiment. See [performance and controls](DUAL_GPU_PERFORMANCE.md).
+The two-hour preset keeps 512² cells, two Bragg wavelengths, 8 particles/cell/species,
+physical O+, initial Te=2000 K/Ti=1000 K, and targets a **4 ms**, not 16 ms,
+post-burn record. A thermostat modifies fluctuation statistics; neither its
+stationarity gate nor these short regressions establish ISR convergence.
+
 [Interactive full-screen PIC replay](https://juha.no/picisr/): a post-burn-in
 10×10-Debye-length window of the large 2D GPU simulation, with selectable
 particle count, evolving potential, complex voltage and browser-computed PSD.

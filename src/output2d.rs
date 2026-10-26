@@ -63,6 +63,11 @@ pub fn save(
         .create("fir_cutoff_hz")?
         .write_scalar(&(0.4 / (cadence as f64 * s.dt_s)))?;
     for r in 0..runs.len() {
+        if let Some(ref control)=runs[r].control_metadata {
+            let g=f.create_group(&format!("control_{r}"))?;
+            g.new_dataset_builder().with_data(&serde_json::to_vec(control)?).create("metadata_json")?;
+            g.new_dataset::<f64>().shape([runs[r].control_history.len()/16,16]).create("history")?.write_raw(&runs[r].control_history)?;
+        }
         let save_complex = |g: &hdf5::Group, z: &[Complex32]| -> Result<()> {
             g.new_dataset_builder()
                 .with_data(&z.iter().map(|z| z.re).collect::<Vec<_>>())

@@ -2,10 +2,13 @@
 //! The observable is the electron density mode, NOT free ion trajectories.
 pub mod analysis;
 pub mod cpu;
+pub mod control2d;
 #[cfg(feature = "cuda")]
 pub mod gpu;
 #[cfg(feature = "cuda")]
 pub mod gpu2d;
+#[cfg(feature = "cuda")]
+pub mod dual_gpu2d;
 #[cfg(feature = "cuda")]
 pub mod gpu_batch;
 pub mod implicit2d;
@@ -219,6 +222,8 @@ impl Particles {
 
 #[derive(Default)]
 pub struct Run {
+    pub control_metadata: Option<serde_json::Value>,
+    pub control_history: Vec<f64>,
     pub voltage: Vec<Complex32>,
     /// Columns: time_s, total_energy, electron_kinetic, ion_kinetic,
     /// field_energy, electron_temperature_K, ion_temperature_K, momentum,
