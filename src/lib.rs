@@ -8,6 +8,9 @@ pub mod gpu;
 pub mod gpu2d;
 #[cfg(feature = "cuda")]
 pub mod gpu_batch;
+pub mod implicit2d;
+#[cfg(feature = "cuda")]
+pub mod implicit_gpu;
 pub mod output2d;
 pub mod pic2d;
 pub mod spectrum;
