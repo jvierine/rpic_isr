@@ -1,0 +1,7 @@
+{
+  "default": "low",
+  "runs": [
+    {"id": "low", "label": "nₑ = 10¹⁰ m⁻³", "metadata": "data/metadata.json"},
+    {"id": "high", "label": "nₑ = 10¹¹ m⁻³ · diagnostic", "metadata": "data/high/metadata.json"}
+  ]
+}

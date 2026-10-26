@@ -45,7 +45,7 @@ impl PlasmaView {
                 0., 0., 0.3, 0., 0., 1., 1., 1., 0.86, 1., 0., 0., 0.5, 0., 0.,
             ]
         } else {
-            &[0.032, 0.065, 0.09, 0.032, 0.065, 0.09]
+            &[0.914, 0.894, 0.839, 0.914, 0.894, 0.839]
         };
         self.field.set_colormap(palette)?;
         let lo = (length - 10.) * 0.5 / length;
@@ -81,6 +81,7 @@ impl PlasmaView {
 pub struct ScientificPlot {
     axes: rustplotlib_web::SeriesView,
     lines: rustplotlib_web::LinePlot,
+    viewport: rustplotlib_web::PlotViewport,
 }
 
 #[wasm_bindgen]
@@ -93,6 +94,7 @@ impl ScientificPlot {
         Ok(Self {
             axes: rustplotlib_web::SeriesView::new(axes)?,
             lines: rustplotlib_web::LinePlot::new(lines)?,
+            viewport: rustplotlib_web::PlotViewport::new(),
         })
     }
     #[allow(clippy::too_many_arguments)]
@@ -108,12 +110,19 @@ impl ScientificPlot {
         xlabel: &str,
         ylabel: &str,
     ) -> Result<(), JsValue> {
+        let v = self.viewport.bounds();
+        let (x0, x1, y0, y1) = (x0 + v[0]*(x1-x0), x0 + v[2]*(x1-x0), y0 + v[1]*(y1-y0), y0 + v[3]*(y1-y0));
         self.axes
             .begin_axes(width, height, dpr, x0, x1, y0, y1, xlabel, ylabel)?;
         self.axes.x_ticks(false, false)?;
         self.lines.set_margins(70., 18., 30., 48.)?;
         self.lines.begin(width, height, dpr, x0, x1, y0, y1)
     }
+    pub fn zoom(&mut self, x: f64, y: f64, factor: f64) { self.viewport.zoom(x, y, factor); }
+    pub fn zoom_box(&mut self, x0: f64, y0: f64, x1: f64, y1: f64) -> bool { self.viewport.zoom_box(x0, y0, x1, y1) }
+    pub fn pan(&mut self, dx: f64, dy: f64) { self.viewport.pan(dx, dy); }
+    pub fn reset(&mut self) { self.viewport.reset(); }
+    pub fn viewport_bounds(&self) -> Vec<f64> { self.viewport.bounds() }
     pub fn series(
         &self,
         xy: &[f64],

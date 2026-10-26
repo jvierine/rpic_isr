@@ -2,9 +2,44 @@
 
 Public route: https://juha.no/picisr/
 
+The run selector retains the original density 10^10 m^-3 case and adds the
+10^11 m^-3 diagnostic recording (seed 8300). The latter is explicitly flagged:
+26.5735% maximum energy excursion, final Te 2802.1 K and Ti 1039.7 K; Te rises
+7.92% during its 4 ms record. Its narrow peaks near -3.0352/+3.0318 MHz must
+not be interpreted as an equilibrium/converged thermal plasma-line result.
+The original remains the default. Both are finite explicit-PIC realizations.
+
+The interface uses a bone/light theme, retaining the seismic potential map.
+Every signal/spectrum plot connects Rustplotlib's standard Rust/Wasm viewport
+and DOM navigation bridge: zoom buttons, pointer-anchored Cmd/Ctrl-wheel,
+Cmd/Ctrl-drag rectangle, drag-to-pan, and reset/right-click. Views persist
+across animation frames and reset when switching recordings.
+The MathJax scale bar spans exactly 1/10 of the 10-Debye-length horizontal
+view. The lower-left clock is elapsed time after burn-in, in ns and electron
+plasma periods: t*fp = t*omega_pe/(2*pi). It follows the selected recording.
+Run `node web/test_annotations.mjs` to check the clock conversion.
+
+High-density export and numerical checks:
+```sh
+conda run -n base python scripts/export_web.py \
+  results/web_high_capture.h5 results/web_high_spectrum.h5 web/public/data/high
+node web/verify.mjs ./public/data/high/
+conda run -n base python scripts/check_web_spectrum.py \
+  results/web_high_capture.h5 results/web_high_spectrum.h5 \
+  web/public/data/high/metadata.json results/web_high_validation.h5
+```
+The high recording has 1024 frames at 26.906 ns cadence (27.525 us dense movie),
+a 69.783-Debye-length full box, and a 9.759 cm wide camera crop. The fixed-ID
+pool can contain fewer dots inside this crop than the requested slider cap;
+the counter reports actual/cap rather than inventing additional particles.
+Default high-density FFT length 32768 gives 1.134 kHz bins. Early/late
+plasma-band power ratios are 0.669/0.488: stationarity is not established.
+Full HDF5 source hashes are in the exported metadata; browser binaries are
+transport products, not replacements for the authoritative HDF5.
+
 Full-viewport WebGL2 view, 100 dots by default (50 electrons, 50 O+ ions),
 10×10 Debye-length crop, a display-only 10–1,000 particle cap, time controls,
-potential contrast/toggle, equations/help, and collapsible voltage/PSD panels.
+potential contrast/toggle (0.3× by default), parameter definitions and equations/help, and collapsible voltage/PSD panels.
 Potential is blue–light-yellow–red seismic, with zero at the light-yellow centre.
 Screen aspect can differ from the square physical crop; resizing never changes
 the underlying coordinates or dynamics.
