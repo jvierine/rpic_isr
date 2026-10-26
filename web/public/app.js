@@ -99,8 +99,6 @@ function updateRunHelp(){
  $('viewWidthCm').textContent=(meta.lambda_de_m*1000).toFixed(2);
  $('fullBoxDebye').textContent=meta.length_lambda_de.toFixed(2);
  $('energyDrift').textContent=`${meta.max_energy_excursion_percent.toFixed(3)}% maximum energy excursion`;
- $('runWarning').hidden=meta.max_energy_excursion_percent<5;
- $('runWarning').textContent=`Numerically heated diagnostic run: ${meta.max_energy_excursion_percent.toFixed(1)}% energy drift. Not an equilibrium ISR spectrum.`;
  $('frameCadence').textContent=`${(meta.frame_dt_s*1e9).toFixed(2)} ns (8 PIC steps)`;
  $('playbackScale').textContent=`${(20*meta.frame_dt_s*1e6).toFixed(2)} µs of plasma time`;
  $('recordLength').textContent=`${(meta.signal_samples*meta.signal_dt_s*1e3).toFixed(2)} ms`;
