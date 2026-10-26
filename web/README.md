@@ -1,0 +1,80 @@
+# PIC ISR web replay
+
+Public route: https://juha.no/picisr/
+
+Full-viewport WebGL2 view, 100 dots by default (50 electrons, 50 O+ ions),
+10×10 Debye-length crop, a display-only 10–1,000 particle cap, time controls,
+potential contrast/toggle, equations/help, and collapsible voltage/PSD panels.
+Potential is blue–light-yellow–red seismic, with zero at the light-yellow centre.
+Screen aspect can differ from the square physical crop; resizing never changes
+the underlying coordinates or dynamics.
+
+## Responsibilities
+
+- Rust GPU PIC: physical 128×128, 131,072 particles per species, TSC/leapfrog,
+  10 ms burn followed by 4 ms recording, seed 8200. This is the existing explicit
+  solver, not the separate implicit experiment. Energy excursion: 0.33965%.
+- Rust/Wasm: shortest-periodic-path interpolation, crop/particle selection,
+  potential interpolation, and the two-sided Hann Welch FFT calculation.
+- Rustplotlib Rust/Wasm/WebGL2: potential texture, particle markers, plot axes
+  and GPU curves. JavaScript connects controls and transports the recorded data;
+  it does not implement particle dynamics or the plot renderer.
+
+The dense movie spans 87.042 µs after burn-in (1,024 frames, 85.084 ns cadence).
+It records fixed IDs `p=j*32`, j=0…4095, per species. The camera sees a subset
+of those IDs, not a freshly resampled particle cloud. Both species share one
+clock. Positions are u16-quantized over the full box and the 64² display field
+is i16-quantized using one fixed scale. Authoritative output stays float32 HDF5.
+Field and particle interpolation is display-only, not extra PIC steps.
+
+The mesh Fourier electron-density mode, corrected for the TSC window, supplies
+the signal, independent of the camera or particle cap. A 257-tap Blackman sinc
+FIR precedes 8-fold signal decimation; both filter edges are discarded. The
+browser processes the resulting 4 ms finite record, not new live GPU data.
+8,192-point windows give 1.435 kHz bins and 10 overlapping periodograms. The
+longer voltage record and shorter dense movie are distinguished in the help.
+Neither burn-in nor this single realization establishes spectral convergence.
+
+## Build and verify
+
+Requires Rust with wasm32-unknown-unknown, wasm-bindgen-cli 0.2.129, Node, and
+base-conda Python (NumPy, SciPy and h5py for export).
+
+```sh
+bash web/build.sh
+conda run -n base python scripts/export_web.py \
+  results/web_capture.h5 results/web_spectrum.h5 web/public/data
+node web/verify.mjs
+conda run -n base python -m http.server 8768 --directory web/public
+```
+
+The build runs three Rust numerical tests; verify.mjs exercises the exact built
+Wasm against the exported recording at multiple frames and counts, verifies
+interpolation, and checks integrated spectral power. This record gave PSD
+integral 0.50891 versus mean squared signal 0.51237; Hann window weighting
+need not produce the identical finite-record sample mean.
+
+For capture, build the normal CUDA executable from revision
+721100d49cab22b31b5a049343883f19a5818889, then run on Seid with the existing
+CUDA library path:
+
+```sh
+RPIC_WEB_CAPTURE=results/web_capture.h5 target/release/rpic_isr_2d \
+  --backend cuda --device 0 --cells 128 --ppc 8 --bragg-mode 2 --dt .06 \
+  --burn-ms 10 --duration-ms 4 --sample-us 1 --window 1024 --seed 8200 \
+  --diagnostic-stride 10000 --output results/web_spectrum.h5
+```
+
+Capture HDF5 SHA256: a564591753ac9f2e5577d7befc89c58e234c670248c0b1a9c9c9930d72b4ea23.
+Spectrum HDF5 SHA256: c09ca2f7b62d1c9fabb77d60bd5af9fd781c957ded10cefb3137ea6168a981a5.
+Source hashes, quantization and timing are retained in data/metadata.json.
+
+## Renderer vendoring
+
+`vendor/rustplotlib-web` is an MIT-licensed source snapshot from the author's
+local Rustplotlib browser library (parent revision
+9aeb0a67dc67ff88d7e0ec6e78692b65b959cc5a, including its then-uncommitted
+LinePlot and SeriesView work). The original checkout is untouched. Local
+adaptations: round point sprites in LinePlot and bilinear regular-grid field
+display. Numerical simulation values are not spatially filtered by those
+display adaptations. The vendored license is included.

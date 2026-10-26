@@ -1,5 +1,10 @@
 # rpic_isr
 
+[Interactive full-screen PIC replay](https://juha.no/picisr/): a post-burn-in
+10×10-Debye-length window of the large 2D GPU simulation, with selectable
+particle count, evolving potential, complex voltage and browser-computed PSD.
+Uses Rust/Wasm and Rustplotlib/WebGL2. See [web build and data notes](web/README.md).
+
 **New experimental implicit 2D2V solver:** float64 Rust CPU reference and
 float32 CUDA/cuFFT backend with matched discrete particle/field work. In a
 20,000-step GPU test, maximum energy excursion fell from 0.10134% (explicit)

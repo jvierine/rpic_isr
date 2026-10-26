@@ -155,7 +155,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
         fft.exec_c2c(&mut grid, &mut freq, FftDirection::Forward)?;
         if web_path.is_some() && step >= s.burn_steps {
             let elapsed = step - s.burn_steps;
-            if elapsed % 8 == 0 && elapsed / 8 < 1024 {
+            if elapsed.is_multiple_of(8) && elapsed / 8 < 1024 {
                 let pool = 4096i32;
                 unsafe {
                     stream

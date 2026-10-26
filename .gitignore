@@ -6,4 +6,8 @@
 /results/
 /release_assets/
 *.tmp
+/web/wasm/target/
+/web/public/data/
+/web/public/pkg/
+__pycache__/
 
