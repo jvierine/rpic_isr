@@ -132,6 +132,8 @@ const annotationObserver=new ResizeObserver(annotationLayout);annotationObserver
 const loadBinary=url=>downloads.load(url);
 function densityText(n){const exponent=Math.floor(Math.log10(n)),digits='⁰¹²³⁴⁵⁶⁷⁸⁹',mantissa=n/10**exponent;return `${Math.abs(mantissa-1)<1e-8?'':mantissa.toFixed(3)+' × '}10${String(exponent).split('').map(v=>digits[Number(v)]).join('')} m⁻³`;}
 function updateRunHelp(){
+ document.querySelector('.spectrum-card h2').textContent=meta.magnetic_field_z_t?'Low-frequency spectrum':'Ion-line spectrum';
+ document.querySelector('.plasma-line-card h2').textContent=meta.magnetic_field_z_t?'Electron-frequency spectrum':'Plasma-line spectrum';
  const per=meta.particles_per_species,saved=meta.recorded_particles_per_species||4096;
  for(const element of document.querySelectorAll('.saved-pool-count'))element.textContent=saved.toLocaleString();
  $('populationSummary').textContent=`This run contains ${(2*per).toLocaleString()} computational macroparticles: ${per.toLocaleString()} electrons and ${per.toLocaleString()} O⁺ ions. The original replay capture saved trajectories for ${(2*saved).toLocaleString()} of them (${saved.toLocaleString()} per species). Across the animation, ${meta.visible_particles_min??'some'}–${meta.visible_particles_max??'some'} of those saved tracks lie inside the camera view. The web display offers a limit up to ${(meta.animation_particles||100).toLocaleString()} particles; it cannot show tracks that were not saved. The default display limit is 1,000.`;
