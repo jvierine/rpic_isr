@@ -1,8 +1,8 @@
 import init, {Replay, Welch, ScientificPlot, PlasmaView, ion_lowpass} from './pkg/picisr_web.js?v=cbeb2cff8ee2';
 import {ProgressDownloads} from './loading.js?v=ebb138dbfd70';
 import {simulationClock} from './annotations.js?v=e0a325e6b590';
-import {bindPlotNavigation} from './navigation.js?v=cf02acb86355';
-import {PotentialFrames,particlePoints} from './potential.js?v=3';
+import {bindPlotNavigation} from './navigation.js?v=dc0b1c501859';
+import {PotentialFrames,particlePoints} from './potential.js?v=01bfbefb4745';
 const $=id=>document.getElementById(id);
 let meta, replay, signal, spectrum=[], running=true, frame=16, last=0, pending=0, welch;
 const state={ready:false,frame:16,shown:0,segments:0};
@@ -16,6 +16,7 @@ const makeDownloads=()=>new ProgressDownloads(({loaded,total,fraction})=>{
 });
 const dialog=$('help');$('helpOpen').onclick=()=>dialog.showModal();
 $('plotsToggle').onclick=()=>{const panel=$('plots');panel.hidden=!panel.hidden;$('plotsToggle').setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){drawSignal();drawSpectrum();}};
+$('plotsClose').onclick=()=>{$('plots').hidden=true;$('plotsToggle').setAttribute('aria-expanded','false');};
 $('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();};
 $('helpClose').onclick=()=>dialog.close();
 dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}});
@@ -85,7 +86,7 @@ function drawSignal(){if(!waveform||$('plots').hidden)return;const duration=wave
  const [real,imag,slowReal,slowImag]=waveform.traces,show=$('lowpass').checked;curve(p,real,show?'#8dbbd6':'#126ca4',1);curve(p,imag,show?'#d8ad89':'#b64a16',1);
  if(show){curve(p,slowReal,'#126ca4',2.5);curve(p,slowImag,'#b64a16',2.5);}
  const t=frame*meta.frame_dt_s*1e3;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
-function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=Number($('band').value),n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-75;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');drawPlasmaLine();}
+function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=30,n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-75;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');drawPlasmaLine();}
 function drawPlasmaLine(){
  if(!meta||$('plots').hidden)return;
  const n=spectrum.length,points=[],band=meta.plasma_band_mhz||2;let peak=-100;
@@ -113,7 +114,7 @@ $('scrub').oninput=()=>{frame=Number($('scrub').value);running=false;$('play').t
 $('count').oninput=()=>{$('countLabel').textContent=$('count').value;};
  $('lowpass').onchange=drawSignal;
 $('contrast').oninput=()=>{$('contrastLabel').textContent=`${Number($('contrast').value).toFixed(1)}×`;};
- $('band').onchange=()=>{plotRenderers.get('spectrum')?.reset();drawSpectrum();};$('fft').onchange=calculate;$('recalculate').onclick=calculate;
+ $('fft').onchange=calculate;$('recalculate').onclick=calculate;
 window.addEventListener('resize',()=>{drawSpectrum();drawSignal();});
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();state.ready=false;status('The graphics context was lost. Reload to restore the recording.',true);});
 const annotationLayout=()=>{document.documentElement.style.setProperty('--toolbar-height',`${$('toolbar').getBoundingClientRect().height}px`);document.documentElement.style.setProperty('--header-height',`${document.querySelector('header').getBoundingClientRect().height}px`);};
@@ -151,7 +152,7 @@ async function loadRun(id){
  if(potentialFrames){potentialFrames.close();potentialFrames=null;}
  downloads=makeDownloads();
  try{
- const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=e047a7e2303a',import.meta.url);
+ const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=30ebf8870a75',import.meta.url);
  const metadataUrl=new URL(run.metadata,location.href);
  const response=await fetch(metadataUrl,{cache:'no-cache'});if(!response.ok)throw Error('Recording metadata is not available');meta=await response.json();
  const asset=name=>new URL(meta[name],metadataUrl);

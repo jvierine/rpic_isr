@@ -92,10 +92,23 @@ not be interpreted as an equilibrium/converged thermal plasma-line result.
 It is no longer selected by the public catalog. Its files remain preserved.
 
 The interface uses a bone/light theme, retaining the seismic potential map.
-Every signal/spectrum plot connects Rustplotlib's standard Rust/Wasm viewport
-and DOM navigation bridge: zoom buttons, pointer-anchored Cmd/Ctrl-wheel,
-Cmd/Ctrl-drag rectangle, drag-to-pan, and reset/right-click. Views persist
+Every signal/spectrum plot connects Rustplotlib's Rust/Wasm viewport
+and DOM navigation bridge: zoom buttons, pointer-anchored wheel zoom,
+plain-drag rectangle, Shift-drag pan, and reset/double-click/right-click. Views persist
 across animation frames and reset when switching recordings.
+The minimum normalized zoom span is 1e-6, not 1e-3, so the MHz plot can inspect
+narrow features. The redundant frequency-band menu is removed; the ion panel
+starts at ±30 kHz, and the plasma panel already provides the full spectrum.
+The panel has an explicit top-right close button. `node web/test_navigation.mjs`
+checks gesture dispatch; actual drag zoom and closing were also checked live.
+
+`scripts/compare_ion_records.py` saves matched 3 ms voltage PSDs in HDF5 at
+8192/16384/32768 FFT sizes, with 26/12/5 overlapping windows respectively.
+The old full 4 ms record had 8 windows at 32768, versus 5 for the new 3 ms
+record. Neither overlapping-window count is an independent ensemble size.
+The different stochastic realization, grid and thermostat prevent attributing
+all spectral differences to duration. Display-particle selection and JPEG
+potential compression do not alter the voltage or these spectra.
 The MathJax scale bar spans exactly 1/10 of the 10-Debye-length horizontal
 view. The lower-left clock is elapsed time after burn-in, in ns and electron
 plasma periods: t*fp = t*omega_pe/(2*pi). It follows the selected recording.

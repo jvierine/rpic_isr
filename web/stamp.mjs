@@ -7,8 +7,9 @@ app=app.replace(/\.\/pkg\/picisr_web\.js(?:\?v=[a-z0-9]+)?/,'./pkg/picisr_web.js
 app=app.replace(/\.\/loading\.js(?:\?v=[a-z0-9]+)?/,'./loading.js?v='+hash('loading.js'));
 app=app.replace(/\.\/annotations\.js(?:\?v=[a-z0-9]+)?/,'./annotations.js?v='+hash('annotations.js'));
 app=app.replace(/\.\/navigation\.js(?:\?v=[a-z0-9]+)?/,'./navigation.js?v='+hash('navigation.js'));
+app=app.replace(/\.\/potential\.js(?:\?v=[a-z0-9_-]+)?/,'./potential.js?v='+hash('potential.js'));
 app=app.replace(/picisr_web_bg\.wasm\?v=[A-Za-z0-9_]+/,'picisr_web_bg.wasm?v='+hash('pkg/picisr_web_bg.wasm'));
 fs.writeFileSync(new URL('app.js',root),app);
 let html=fs.readFileSync(new URL('index.html',root),'utf8');
-html=html.replace(/style\.css\?v=[a-z0-9]+/,'style.css?v='+hash('style.css')).replace(/app\.js\?v=[a-z0-9]+/,'app.js?v='+hash('app.js'));
+html=html.replace(/style\.css\?v=[a-z0-9_-]+/,'style.css?v='+hash('style.css')).replace(/app\.js\?v=[a-z0-9_-]+/,'app.js?v='+hash('app.js'));
 fs.writeFileSync(new URL('index.html',root),html);

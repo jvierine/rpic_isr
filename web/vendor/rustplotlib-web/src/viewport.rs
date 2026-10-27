@@ -25,7 +25,7 @@ impl PlotViewport {
         }
         for (a, p) in [(0, x.clamp(0., 1.)), (1, y.clamp(0., 1.))] {
             let span = self.bounds[a + 2] - self.bounds[a];
-            let size = (span * factor).clamp(0.001, 1.);
+            let size = (span * factor).clamp(0.000001, 1.);
             let anchor = self.bounds[a] + p * span;
             let lo = (anchor - p * size).clamp(0., 1. - size);
             self.bounds[a] = lo;
@@ -46,7 +46,7 @@ impl PlotViewport {
         let old = self.bounds;
         for a in 0..2 {
             let span = old[a + 2] - old[a];
-            let size = ((high[a] - low[a]) * span).max(0.001).min(span);
+            let size = ((high[a] - low[a]) * span).max(0.000001).min(span);
             let lo = (old[a] + low[a] * span).min(old[a + 2] - size);
             self.bounds[a] = lo;
             self.bounds[a + 2] = lo + size;
@@ -107,5 +107,13 @@ mod tests {
         v.zoom(f64::NAN, 0., 0.5);
         v.zoom(0., 0., -1.);
         assert_eq!(v.bounds, [0., 0., 1., 1.]);
+    }
+    #[test]
+    fn narrow_spectral_features_can_be_resolved() {
+        let mut v=PlotViewport::new();
+        for _ in 0..12 { v.zoom(0.5,0.5,0.25); }
+        assert!((v.bounds[2]-v.bounds[0]-0.000001).abs()<1e-12);
+        v.reset();
+        assert_eq!(v.bounds,[0.,0.,1.,1.]);
     }
 }

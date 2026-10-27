@@ -17,3 +17,5 @@ dialog .equation{font:16px/1.5 system-ui,sans-serif;overflow-x:auto;padding:12px
 /* Stable toolbar geometry: live counts never move or wrap the slider. */
 #countLabel{width:4ch;min-width:4ch;font-variant-numeric:tabular-nums}
 #shown{width:27ch;flex:0 0 27ch;font-variant-numeric:tabular-nums;white-space:nowrap}
+#plots{padding-top:28px}
+#plotsClose{position:absolute;right:5px;top:1px;z-index:3;font-size:20px;line-height:1;padding:1px 6px;background:transparent;border:0}
