@@ -22,6 +22,14 @@ pub struct Setup {
     /// Core-only weak rescaling time in microseconds, burn-in only. Zero disables.
     #[arg(long,default_value_t=0.)]
     pub core_thermostat_us: f64,
+    /// Enable a delayed ring experiment; m_e v_ring^2/2 in eV, not mean energy.
+    #[arg(long,default_value_t=0.)]
+    pub ring_energy_ev: f64,
+    #[arg(long,default_value_t=0.1)]
+    pub ring_width: f64,
+    /// Absolute simulation time of instantaneous, explicitly accounted injection.
+    #[arg(long,default_value_t=20.)]
+    pub ring_turn_on_us: f64,
 }
 impl Deref for Setup { type Target=Config; fn deref(&self)->&Config {&self.base} }
 impl Setup {
@@ -30,9 +38,12 @@ impl Setup {
         anyhow::ensure!((0.0..0.5).contains(&self.hot_fraction)&&self.hot_energy_ev>0.&&self.core_thermostat_us>=0.,"Invalid tail/thermostat parameters");
         anyhow::ensure!(self.gpu_batch_size==1,"3V diagnostic populations currently require one seed at a time");
         anyhow::ensure!(self.hot_fraction==0.||self.hot_count(self.cells*self.cells*self.ppc)>=32,"Tail requires at least 32 macroparticles");
+        anyhow::ensure!([self.ring_energy_ev,self.ring_width,self.ring_turn_on_us].iter().all(|x|x.is_finite())&&self.ring_energy_ev>=0.&&self.ring_width>0.&&self.ring_turn_on_us>0.,"Invalid ring parameters");
+        if self.ring_energy_ev>0. {anyhow::ensure!(self.core_thermostat_us==0. && self.ring_turn_on_us>self.burn_ms*1000. && self.ring_turn_on_us<(self.burn_ms+self.duration_ms)*1000.,"Ring injection must be recorded, with thermostat disabled");}
         Ok(())
     }
     pub fn hot_count(&self,n:usize)->usize {(self.hot_fraction*n as f64).round() as usize}
+    pub fn ring_step(&self,s:&Scales)->Option<usize>{(self.ring_energy_ev>0.).then(||(self.ring_turn_on_us*1e-6/s.dt_s).round() as usize)}
 }
 pub fn magnetic(c:&Setup,s:&Scales)->[f32;3] {
     [c.bx_t,c.by_t,c.bz_t].map(|b|(QE*b/(ME*s.omega_pe)) as f32)
@@ -60,11 +71,37 @@ impl Particles3 {
                 let var=v.iter().map(|v|(v[d] as f64-mean).powi(2)).sum::<f64>()/v.len() as f64;
                 for v in v.iter_mut(){v[d]=((v[d] as f64-mean)*sigma/var.sqrt()) as f32;}}
         }
-        normalize(&mut ve[nh..],1.);
-        normalize(&mut ve[..nh],(2.*c.hot_energy_ev*QE/(3.*KB*c.te)).sqrt());
+        if c.ring_energy_ev>0. {normalize(&mut ve,1.);} else {
+            normalize(&mut ve[nh..],1.);
+            normalize(&mut ve[..nh],(2.*c.hot_energy_ev*QE/(3.*KB*c.te)).sqrt());
+        }
         normalize(&mut vi,(c.ti/c.te/s.mass_ratio).sqrt());
         Self{xe,xi,ve,vi}
     }
+}
+/// Replace selected electron velocities, leaving charge and positions unchanged.
+/// The radial PDF includes v_perp, matching the dispersion solver's phase-space ring.
+pub fn inject_ring(p:&mut Particles3,e:&[[f32;2]],c:&Setup,s:&Scales,seed:u64)->f64 {
+    let nh=c.hot_count(p.xe.len());if nh==0{return 0.;}
+    let b=magnetic(c,s);let norm=b.iter().map(|x|x*x).sum::<f32>().sqrt();assert!(norm>0.);
+    let u=b.map(|x|x/norm);let axis=if u[2].abs()<0.9{[0.,0.,1.]}else{[1.,0.,0.]};
+    let a=cross(u,axis);let an=a.iter().map(|x|x*x).sum::<f32>().sqrt();let a=a.map(|x|x/an);let d=cross(u,a);
+    let vr=(2.*c.ring_energy_ev*QE/(KB*c.te)).sqrt();let sigma=c.ring_width*vr;
+    let h=(vr+9.*sigma)/8192.;let mut cdf=vec![0.;8193];
+    let pdf=|v:f64|v*(-0.5*((v-vr)/sigma).powi(2)).exp();
+    for j in 1..cdf.len(){cdf[j]=cdf[j-1]+0.5*h*(pdf((j-1) as f64*h)+pdf(j as f64*h));}
+    let total=*cdf.last().unwrap();let mut rng=StdRng::seed_from_u64(seed^0x52494e47);let mut work=0.;let mut last=[0.;3];
+    for j in 0..nh {
+        let v=if j%2==1 {last.map(|x| -x)} else {
+            let target=rng.random::<f64>()*total;let hi=cdf.partition_point(|x|*x<target).clamp(1,8192);
+            let r=((hi-1) as f64+(target-cdf[hi-1])/(cdf[hi]-cdf[hi-1]))*h;
+            let phi=rng.random::<f64>()*std::f64::consts::TAU;let vp:f64=StandardNormal.sample(&mut rng);
+            std::array::from_fn(|q|(vp*u[q] as f64+r*(phi.cos()*a[q] as f64+phi.sin()*d[q] as f64)) as f32)
+        };last=v;
+        let ef=gather(e,p.xe[j],c.cells,s.length as f32);let old=boris(p.ve[j],ef,-1.,0.5*c.dt as f32,b);
+        work+=0.5*(0..3).map(|q|(v[q] as f64).powi(2)-(old[q] as f64).powi(2)).sum::<f64>()/p.xe.len() as f64;
+        p.ve[j]=boris(v,ef,-1.,-0.5*c.dt as f32,b);
+    }work
 }
 pub fn push(p:&mut Particles3,e:&[[f32;2]],c:&Setup,s:&Scales,kick:f32,drift:f32) {
     for(x,v,qm) in [(&mut p.xe,&mut p.ve,-1.),(&mut p.xi,&mut p.vi,1./s.mass_ratio as f32)] {
@@ -128,6 +165,7 @@ pub fn save_live(run:&Run,c:&Setup,s:&Scales)->Result<()> {
     f.new_dataset::<f64>().shape([run.diagnostics.len()/9,9]).create("diagnostics")?.write_raw(&run.diagnostics)?;
     f.new_dataset::<f64>().shape([run.interaction_history.len()/11,11]).create("population_energy")?.write_raw(&run.interaction_history)?;
     f.new_dataset::<f64>().shape([run.directional_temperatures.len()/6,6]).create("parallel_perpendicular_temperatures_K")?.write_raw(&run.directional_temperatures)?;
+    f.new_dataset::<f64>().shape([run.injection_history.len()/2,2]).create("ring_injection_time_work")?.write_raw(&run.injection_history)?;
     f.new_dataset_builder().with_data(&serde_json::to_vec(c)?).create("config_json")?;
     f.new_dataset_builder().with_data(&serde_json::to_vec(s)?).create("scales_json")?;
     f.flush()?;drop(f);std::fs::rename(format!("{path}.tmp"),path)?;Ok(())
@@ -136,14 +174,23 @@ pub fn simulate(c:&Setup,s:&Scales,seed:u64)->Result<Run>{
     let start=Instant::now();let mut p=Particles3::new(c,s,seed);let mut solver=Solver2::new(c.cells);let mut run=Run::default();let mut work=0.;
     for step in 0..=s.burn_steps+s.steps {let obs=solver.fields_positions(&p.xe,&p.xi,c,s);
         if step==0{push(&mut p,&solver.e,c,s,-0.5*c.dt as f32,0.);}
+        if c.ring_step(s)==Some(step){let added=inject_ring(&mut p,&solver.e,c,s,seed);work+=added;run.injection_history.extend([step as f64*s.dt_s,added]);}
         if step>=s.burn_steps&&step<s.burn_steps+s.steps{run.voltage.push(obs);}
-        if step%c.diagnostic_stride==0||step==s.burn_steps+s.steps{diagnostic3(&mut run,&p,&solver.e,c,s,step,solver.charge,work);guard(&run)?;work+=thermostat(&mut p,&solver.e,c,s,step);}
+        if step%c.diagnostic_stride==0||c.ring_step(s)==Some(step)||step==s.burn_steps+s.steps{diagnostic3(&mut run,&p,&solver.e,c,s,step,solver.charge,work);guard(&run)?;work+=thermostat(&mut p,&solver.e,c,s,step);}
         if step==s.burn_steps+s.steps{break;}push(&mut p,&solver.e,c,s,c.dt as f32,c.dt as f32);
     }
     run.elapsed_s=start.elapsed().as_secs_f64();Ok(run)
 }
 #[cfg(test)] mod tests {
  use super::*;
+ #[test]fn delayed_ring_preserves_charge_core_and_energy_ledger(){
+ let c=Setup::parse_from(["t","--cells","128","--ppc","7","--bragg-mode","1","--hot-fraction","0.1","--ring-energy-ev","10","--by-t","0.0000357","--burn-ms","0","--dt","0.01"]);let s=Scales::new(&c).unwrap();let mut p=Particles3::new(&c,&s,5);let nh=c.hot_count(p.xe.len());let old=p.clone();let field=vec![[0.,0.];c.cells*c.cells];
+ let ke=|p:&Particles3|p.ve.iter().flat_map(|v|v.iter()).map(|x|0.5*(*x as f64).powi(2)).sum::<f64>()/p.ve.len() as f64;
+ let before=ke(&p);let added=inject_ring(&mut p,&field,&c,&s,5);assert!((ke(&p)-before-added).abs()<1e-6);assert_eq!(old.xe,p.xe);assert_eq!(old.vi,p.vi);assert_eq!(old.ve[nh..],p.ve[nh..]);
+ let mut run=Run::default();diagnostic3(&mut run,&p,&field,&c,&s,1,0.,added);
+ // Perpendicular ring mean energy = E_ring*(1+3 width^2), apart from negligible truncation.
+ let t=&run.directional_temperatures;assert!((t[2]/2000.-1.).abs()<0.04);assert!((t[3]*KB/QE/(10.*1.03)-1.).abs()<0.02);
+ }
  #[test]fn arbitrary_b_preserves_speed_parallel_and_reverses(){let b=[0.02,0.33,0.07];let v=[0.7,-0.3,1.2];let mut u=v;for _ in 0..20000{u=boris(u,[0.,0.],-1.,0.06,b);}let norm=|v:[f32;3]|v.iter().map(|x|x*x).sum::<f32>();assert!((norm(u)-norm(v)).abs()<0.001);assert!((0..3).map(|j|(u[j]-v[j])*b[j]).sum::<f32>().abs()<0.001);let back=boris(boris(v,[0.2,-0.1],-1.,0.06,b),[0.2,-0.1],-1.,-0.06,b);assert!((0..3).all(|d|(back[d]-v[d]).abs()<1e-6));}
  #[test]fn old_bz_limit_matches(){let v=[0.7,-0.3];let old=crate::pic2d::boris(v,[0.2,-0.1],-1.,0.06,0.33);let new=boris([v[0],v[1],1.1],[0.2,-0.1],-1.,0.06,[0.,0.,0.33]);assert!((0..2).all(|d|(old[d]-new[d]).abs()<1e-6));assert_eq!(new[2],1.1);}
  #[test]fn population_targets(){let c=Setup::parse_from(["t","--cells","32","--ppc","4","--bragg-mode","1","--hot-fraction","0.1"]);let s=Scales::new(&c).unwrap();let p=Particles3::new(&c,&s,3);let mut run=Run::default();diagnostic3(&mut run,&p,&vec![[0.,0.];1024],&c,&s,0,0.,0.);let h=run.interaction_history;assert!((h[4]-c.te).abs()<0.01);assert!((h[5]-2.*20.*QE/(3.*KB)).abs()<0.1);assert!((h[6]-c.ti).abs()<0.01);}

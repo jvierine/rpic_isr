@@ -233,6 +233,7 @@ impl Particles {
 pub struct Run {
     pub interaction_history: Vec<f64>,
     pub directional_temperatures: Vec<f64>,
+    pub injection_history: Vec<f64>,
     pub control_metadata: Option<serde_json::Value>,
     pub control_history: Vec<f64>,
     pub voltage: Vec<Complex32>,

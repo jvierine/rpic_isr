@@ -85,7 +85,34 @@ This candidate has not been implemented or verified in PIC. A subsequent
 experiment must introduce the ring after any core preparation, record from
 injection, resolve the microsecond exponential stage and saturation, and
 measure the loss of perpendicular particle energy alongside field growth.
-The currently running isotropic pair remains a separate control experiment.
+The isotropic pair was subsequently stopped at the user's change to a delayed
+ring experiment. Its live diagnostics and logs remain preserved; it did not
+produce a completed comparison and must not be described as completed.
+
+## Delayed ring experiment
+
+`scripts/run_ring_pair.sh` starts identical thermal electron/ion realizations
+on two GPUs. At 20 microseconds GPU 0 converts 10% of electron velocities to
+the ring above; GPU 1 makes no change. Electron positions and charge remain
+unchanged. This is an instantaneous external preparation, not a self-generated
+ring or sustained injection. The exact kinetic energy added at that event is
+recorded separately in `ring_injection_time_work_0`; the cumulative external
+work column includes it so the numerical-energy guard does not mistake the
+deliberate injection for heating. No thermostat is enabled.
+
+Both record all 120 microseconds, including 20 microseconds before injection.
+That short baseline is not a claim of equilibrium. Diagnostics every 200 steps
+resolve the predicted growth interval. The 4096-frame movie spans the full
+record; exporters must read `frame_stride_steps` instead of assuming 8 steps.
+The control and ring use the same seed, 917504 total particles and dt*omega_pe
+=0.01. The ring radial probability includes the cylindrical velocity Jacobian.
+Antithetic velocity samples suppress injected bulk momentum without changing
+the ring's marginal distribution.
+
+Validation: all 32 library tests passed; a CPU/CUDA delayed-injection regression
+had relative voltage/trajectory errors below 7e-6 and work-corrected energy
+excursions about 0.0072%. Production growth, saturation and energy transfer
+remain to be measured. A spectral peak alone is not sufficient evidence.
 
 Run launch and validation helpers are `scripts/run_oblique_pair.sh` and
 `scripts/check_oblique.py`. The latter accepts two files only for a CPU/GPU

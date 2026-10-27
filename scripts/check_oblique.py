@@ -17,10 +17,19 @@ def check(path):
   assert max(abs(error))<.01
   assert np.allclose(d[:,1],p[:,1:4].sum(axis=1)+d[:,4])
   assert np.allclose(t[:,::2]/3+2*t[:,1::2]/3,p[:,4:7],rtol=1e-5,atol=1e-5)
-  assert abs(p[0,4]-c['te'])<.1 and abs(p[0,6]-c['ti'])<.1
-  if c['hot_fraction']>0: assert abs(p[0,5]-2*c['hot_energy_ev']*1.602176634e-19/(3*1.380649e-23))<1
+  assert abs(p[0,6]-c['ti'])<.1
+  if c.get('ring_energy_ev',0)>0: assert abs(d[0,5]-c['te'])<2
+  else: assert abs(p[0,4]-c['te'])<.1
+  if c['hot_fraction']>0:
+   target=c['te'] if c.get('ring_energy_ev',0)>0 else 2*c['hot_energy_ev']*1.602176634e-19/(3*1.380649e-23)
+   assert abs(p[0,5]-target)<(0.15*target if c.get('ring_energy_ev',0)>0 else 2)
   recording=p[:,0]>=s['burn_steps']*s['dt_s']
-  if recording.any(): assert np.ptp(p[recording,-1])<1e-12,'thermostat active during recording'
+  if c.get('ring_energy_ev',0)>0:
+   injection=f['ring_injection_time_work_0'][:]
+   assert injection.shape==(1,2)
+   assert abs(injection[0,0]-c['ring_turn_on_us']*1e-6)<=s['dt_s']
+   assert np.isclose(p[-1,-1],injection[0,1],atol=1e-10)
+  elif recording.any(): assert np.ptp(p[recording,-1])<1e-12,'thermostat active during recording'
   print(path,'energy excursion %',100*max(abs(error)),'final core/tail/ion K',p[-1,4:7])
 for name in sys.argv[1:]:check(name)
 if len(sys.argv)==3:

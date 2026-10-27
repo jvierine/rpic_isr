@@ -25,7 +25,13 @@ pub fn save(
     metadata["population_power_unit"] = serde_json::json!("N_e k_B T_core_initial omega_pe; instantaneous sampled power");
     metadata["directional_temperature_columns"] = serde_json::json!(["core_parallel", "core_perpendicular", "tail_parallel", "tail_perpendicular", "ion_parallel", "ion_perpendicular"]);
     metadata["velocity_trajectory_components"] = serde_json::json!(["x", "y", "z"]);
+    metadata["population_energy_columns"][10] = serde_json::json!("cumulative_external_energy_added_including_ring_and_thermostat");
+    metadata["ring_injection_columns"] = serde_json::json!(["absolute_time_s","energy_added_Ne_kBTe"]);
+    metadata["ring_energy_parameter_eV"] = serde_json::json!(c.ring_energy_ev);
     metadata["initialization"] = serde_json::json!("Independent uniform positions; independent Gaussian velocities with zero drift and exact component variance separately for core, tail and ions. Hot energy is mean 3D kinetic energy. Not Debye-correlated equilibrium.");
+    if c.ring_energy_ev>0. {
+        metadata["initialization"] = serde_json::json!("All electrons initially thermal; tagged subset converted once to a gyrotropic ring at ring_turn_on_us. Radial probability includes v_perp Jacobian. Charge and positions unchanged; injected kinetic energy recorded separately. Control uses zero converted fraction.");
+    }
     f.new_dataset_builder()
         .with_data(serde_json::to_vec(&metadata)?.as_slice())
         .create("metadata_json")?;
@@ -99,6 +105,7 @@ pub fn save(
             .create(r.to_string().as_str())?
             .write_raw(&runs[r].diagnostics)?;
         f.new_dataset::<f64>().shape([runs[r].interaction_history.len()/11,11]).create(format!("population_energy_{r}").as_str())?.write_raw(&runs[r].interaction_history)?;
+        f.new_dataset::<f64>().shape([runs[r].injection_history.len()/2,2]).create(format!("ring_injection_time_work_{r}").as_str())?.write_raw(&runs[r].injection_history)?;
         f.new_dataset::<f64>().shape([runs[r].directional_temperatures.len()/6,6]).create(format!("parallel_perpendicular_temperatures_K_{r}").as_str())?.write_raw(&runs[r].directional_temperatures)?;
         let g = trajectories.create_group(&r.to_string())?;
         g.new_dataset::<f32>()

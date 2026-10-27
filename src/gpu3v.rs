@@ -175,7 +175,8 @@ pub fn simulate(c: &Setup, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
         fft.exec_c2c(&mut grid, &mut freq, FftDirection::Forward)?;
         if web_path.is_some() && step >= s.burn_steps {
             let elapsed = step - s.burn_steps;
-            if elapsed.is_multiple_of(8) && elapsed / 8 < web_frames {
+            let web_stride=if c.ring_energy_ev>0. {(s.steps/(web_frames-1).max(1)).max(1)}else{8};
+            if elapsed.is_multiple_of(web_stride) && elapsed / web_stride < web_frames {
                 let pool = web_pool as i32;
                 unsafe {
                     stream
@@ -261,7 +262,7 @@ pub fn simulate(c: &Setup, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
         }
         // End the mutable borrow before copying diagnostics.
         drop(do_push);
-        if step % c.diagnostic_stride == 0 || step == s.burn_steps + s.steps {
+        if step % c.diagnostic_stride == 0 || c.ring_step(s)==Some(step) || step == s.burn_steps + s.steps {
             let unpack = |v: Vec<float2>| v.into_iter().map(|v| [v.x, v.y]).collect::<Vec<_>>();
             let host = Particles3 {
                 xe: unpack(stream.clone_dtoh(&xe)?),
@@ -294,6 +295,11 @@ pub fn simulate(c: &Setup, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                     .map(|(ion, electron)| ion.x as f64 - electron.x as f64)
                     .sum::<f64>()
                     / nn as f64;
+                if c.ring_step(s)==Some(step){
+                    let added=crate::pic3v::inject_ring(&mut p,&ef,c,s,seeds[b]);
+                    thermostat_work+=added;run.injection_history.extend([step as f64*s.dt_s,added]);
+                    ve=stream.clone_htod(&velocities(&p.ve))?;
+                }
                 diagnostic3(run, &p, &ef, c, s, step, q, thermostat_work);
                 crate::pic3v::save_live(run,c,s)?;
                 guard(run)?;
@@ -346,7 +352,8 @@ pub fn simulate(c: &Setup, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                 "metadata_json",
                 serde_json::to_vec(
                     &serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),
-            "capture":"post-burn positions and endpoint potential; stride 8; fixed IDs p=j*(particles_per_species/pool) for each species",
+            "capture":"post-burn positions and endpoint potential; fixed IDs p=j*(particles_per_species/pool) for each species",
+            "frame_stride_steps":if c.ring_energy_ev>0. {(s.steps/(web_frames-1).max(1)).max(1)}else{8},
             "recorded_particles_per_species":web_pool,"magnetic_field_z_t":c.bz_t,
             "solver":"explicit 2D3V TSC CUDA, arbitrary-B Boris","velocity_dimensions":3,"magnetic_field_x_t":c.bx_t,"magnetic_field_y_t":c.by_t,"seed":seeds[0],
             "potential_grid":web_grid,"potential_start_node":web_start,"frames":frames}),
