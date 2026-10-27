@@ -7,9 +7,21 @@ import {signalTrace} from './waveform.js?v=3cb07a38a949';
 const $=id=>document.getElementById(id);
 let meta, replay, signal, spectrum=[], running=true, frame=16, last=0, pending=0, welch;
 let theory=[],activeRunId='',theoryCatalog;
+let bernsteinLines=[];
 const theoryCache=new Map();
 async function loadTheory(n,token){
- if(meta.magnetic_field_z_t){theory=[];state.theoryReady=false;$('theory').disabled=true;$('theoryStatus').textContent='Magnetized run: unmagnetized theory does not apply';drawSpectrum();return;}
+ bernsteinLines=[];$('bernsteinControls').hidden=!meta.magnetic_field_z_t;
+ if(meta.magnetic_field_z_t){
+  theory=[];state.theoryReady=false;$('theory').disabled=true;$('theoryStatus').textContent='Magnetized run: unmagnetized theory does not apply';
+  try{
+   const r=await fetch('data/theory/bernstein-lines.json',{cache:'no-cache'});if(!r.ok)throw Error('Analytic mode positions unavailable');
+   const data=await r.json();if(token!==pending)return;
+   for(const [key,value] of Object.entries(data.parameters))if(!Number.isFinite(meta[key])||Math.abs(meta[key]-value)>Math.abs(value)*1e-10)throw Error('Analytic mode parameters do not match this run');
+   bernsteinLines=data.frequency_hz;
+   $('bernsteinPositions').textContent='±'+bernsteinLines.filter(f=>f/1e6<meta.plasma_band_mhz).map(f=>(f/1e6).toFixed(3)).join(', ±')+' MHz · Maxwellian electrons, immobile-ion approximation';
+  }catch(e){if(token===pending)$('bernsteinPositions').textContent=e.message;}
+  drawSpectrum();return;
+ }
  $('theory').disabled=false;
  try{
   theoryCatalog??=await fetch('data/theory/catalog.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('Theory unavailable');return r.json();});
@@ -67,7 +79,9 @@ const plotRenderers=new Map();
 function drawLegend(id){
  const c=$(id);let legend=$(`${id}Legend`);
  if(!legend){legend=document.createElement('canvas');legend.id=`${id}Legend`;legend.style.pointerEvents='none';legend.style.zIndex='1';legend.setAttribute('aria-label',id==='signal'?'Real: blue; Imaginary: brown':`PIC: ${id==='spectrum'?'teal':'purple'}; Theory: ochre`);c.parentElement.append(legend);}
- const r=c.getBoundingClientRect();inset_legend(legend,r.width,r.height,Math.min(devicePixelRatio||1,2),id==='signal',$('theory').checked&&theory.length===spectrum.length,id==='plasmaLine');
+ const shownTheory=($('theory').checked&&theory.length===spectrum.length&&theory.length>0)||(id==='plasmaLine'&&$('bernsteinLines').checked&&bernsteinLines.length>0);
+ legend.setAttribute('aria-label',id==='signal'?'Real: blue; Imaginary: brown':`PIC: ${id==='spectrum'?'teal':'purple'}${shownTheory?'; Theory: ochre':''}`);
+ const r=c.getBoundingClientRect();inset_legend(legend,r.width,r.height,Math.min(devicePixelRatio||1,2),id==='signal',shownTheory,id==='plasmaLine');
 }
 function chart(c,xmin,xmax,ymin,ymax,xlabel,ylabel){
  if(!plotRenderers.has(c.id)){
@@ -104,6 +118,13 @@ function spectrumPanel(id,scale,band,colour,range){
  for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/scale;if(Math.abs(f)>band)continue;const value=spectrumValue(spectrum[j]);points.push([f,value]);peak=Math.max(peak,value);if($('theory').checked&&theory.length===n)peak=Math.max(peak,spectrumValue(theory[j]));}
  const linear=$('linearSpectrum').checked,ymax=linear?Math.max(peak*1.12,1e-6):Math.ceil(peak/5)*5+5,ymin=linear?0:ymax-range;
  const p=chart($(id),-band,band,ymin,ymax,`Frequency offset [${scale===1000?'kHz':'MHz'}]`,linear?'PSD [10⁻⁶ Hz⁻¹]':'PSD [dB re 1 Hz⁻¹]');
+ if(id==='plasmaLine'&&$('bernsteinLines').checked&&bernsteinLines.length){
+  const view=Array.from(p.viewport_bounds()),lo=ymin+view[1]*(ymax-ymin),hi=ymin+view[3]*(ymax-ymin);
+  // Short line segments keep the analytic markers dashed in zoomed/linear views.
+  for(const f of bernsteinLines)for(const sign of [-1,1])if(f/scale<=band){
+   for(let j=0;j<24;j++)curve(p,[[sign*f/scale,lo+(hi-lo)*j/24],[sign*f/scale,lo+(hi-lo)*(j+.5)/24]],'#b66b14',1.3);
+  }
+ }
  if(points.length)curve(p,points,colour);drawTheory(p,scale,band);drawLegend(id);
 }
 function drawSpectrum(){spectrumPanel('spectrum',1000,30,'#18555c',75);drawPlasmaLine();}
@@ -122,6 +143,7 @@ $('scrub').oninput=()=>{frame=Number($('scrub').value);running=false;$('play').t
 $('count').oninput=()=>{$('countLabel').textContent=$('count').value;};
  $('lowpass').onchange=drawSignal;
  $('theory').onchange=drawSpectrum;
+ $('bernsteinLines').onchange=drawPlasmaLine;
  $('linearSpectrum').onchange=()=>{for(const id of ['spectrum','plasmaLine'])plotRenderers.get(id)?.reset();drawSpectrum();};
 $('contrast').oninput=()=>{$('contrastLabel').textContent=`${Number($('contrast').value).toFixed(1)}×`;};
  $('fft').onchange=calculate;$('recalculate').onclick=calculate;

@@ -86,3 +86,13 @@ clock and rulers, full 2 ms signal, magnetic spectra, disabled unmagnetized
 theory, drag zoom/reset, close control, natural final-frame stop, and switching
 back to both existing densities. Help explicitly describes the variance decay
 and does not claim stationary thermal equilibrium.
+
+The electron-frequency plot overlays toggleable dashed analytic mode positions
+at both signs of the Maxwellian electron dielectric roots. Within the default
+±5 MHz view these are ±1.780059, ±2.911381, ±3.365359 and ±4.003611 MHz.
+The next root, 5.000069 MHz, lies just outside the view. These are not integer
+cyclotron harmonics and do not specify peak powers or widths. The MHz model
+treats ions as immobile and uses the initial electron temperature and Bragg
+wave number. `scripts/export_bernstein_lines.py` verifies the harmonic-series
+truncation (96 versus 192 terms), root residuals, and agreement with the stored
+eight-mode analysis; its scientific output is HDF5 with a small JSON web transport.
