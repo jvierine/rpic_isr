@@ -44,5 +44,15 @@ implementation checks, not validation of the Bernstein spectrum.
 The larger pilot was launched on Seid GPU0 in
 `/scratch/data/juha/rpic_isr/results/bernstein-boris-v1`, with an external
 two-hour timeout. Build label `bernstein-boris-v1`; source commit `5408378`.
-It has not yet passed the completed-output checks. Do not replace the public
-unmagnetized replay with this dataset before checking those outputs.
+The pilot completed in 85.67 s. Completed-output checks passed: finite data,
+matching raw voltage and Bragg-mode record, 4096 frames, and 200.00047 us
+recording. Maximum total-energy excursion was 0.017488%; recording-phase
+electron and ion temperature changes were +0.008738% and +0.016944%.
+This does not yet establish the identification of the Bernstein branches.
+
+`scripts/run_bernstein_long.sh` extends burn-in to 0.5 ms and recording to
+2 ms on GPU0 only, seed 9302, without a thermostat. The 4096-frame movie
+still covers the first approximately 104 us after burn-in; the full-rate
+voltage and all eight density modes cover the full 2 ms. Full raw HDF5
+remains a scientific output, not a browser download. The previous pilot
+is preserved. The two-hour outer timeout remains in force.
