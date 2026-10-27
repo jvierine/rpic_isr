@@ -219,8 +219,11 @@ impl Solver2 {
         }
     }
     pub fn fields(&mut self, p: &Particles2, c: &Config, s: &Scales) -> Complex32 {
-        deposit(&p.xe, &mut self.ne, self.n, s.length as f32);
-        deposit(&p.xi, &mut self.ni, self.n, s.length as f32);
+        self.fields_positions(&p.xe, &p.xi, c, s)
+    }
+    pub fn fields_positions(&mut self, xe: &[[f32;2]], xi: &[[f32;2]], c: &Config, s: &Scales) -> Complex32 {
+        deposit(xe, &mut self.ne, self.n, s.length as f32);
+        deposit(xi, &mut self.ni, self.n, s.length as f32);
         for (f, &r) in self.freq.iter_mut().zip(&self.ne) {
             *f = Complex32::new(r, 0.);
         }
@@ -233,7 +236,7 @@ impl Solver2 {
         );
         let kd = std::f64::consts::PI * c.bragg_mode as f64 / self.n as f64;
         let obs = self.freq[c.bragg_mode]
-            * ((p.xe.len() as f64).sqrt() / (self.n * self.n) as f64 / (kd.sin() / kd).powi(3))
+            * ((xe.len() as f64).sqrt() / (self.n * self.n) as f64 / (kd.sin() / kd).powi(3))
                 as f32;
         for j in 0..self.n * self.n {
             self.ni[j] -= self.ne[j];

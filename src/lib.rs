@@ -16,6 +16,10 @@ pub mod implicit2d;
 pub mod implicit_gpu;
 pub mod output2d;
 pub mod pic2d;
+pub mod pic3v;
+pub mod output3v;
+#[cfg(feature = "cuda")]
+pub mod gpu3v;
 pub mod spectrum;
 
 use anyhow::{bail, Result};
@@ -227,6 +231,8 @@ impl Particles {
 
 #[derive(Default)]
 pub struct Run {
+    pub interaction_history: Vec<f64>,
+    pub directional_temperatures: Vec<f64>,
     pub control_metadata: Option<serde_json::Value>,
     pub control_history: Vec<f64>,
     pub voltage: Vec<Complex32>,
