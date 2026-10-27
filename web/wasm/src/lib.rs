@@ -16,14 +16,17 @@ pub fn inset_legend(canvas: web_sys::HtmlCanvasElement, width: f64, height: f64,
     let entries=if voltage {vec![("Real", "#126ca4"),("Imaginary", "#b64a16")]}
         else if theory {vec![("PIC",if plasma {"#762a83"} else {"#18555c"}),("Theory","#b66b14")]}
         else {vec![("PIC",if plasma {"#762a83"} else {"#18555c"})]};
-    let x=78.;let y=36.;
+    // Voltage legend occupies the reserved 30px top margin, never the data.
+    let x=if voltage {(70.+width-18.-190.)/2.}else{78.};
+    let y=if voltage {2.}else{36.};
     ctx.set_fill_style_str("#f5f1e7");ctx.set_global_alpha(0.94);
-    ctx.fill_rect(x,y,98.,entries.len() as f64*18.+10.);ctx.set_global_alpha(1.);
+    ctx.fill_rect(x,y,if voltage {190.}else{98.},if voltage {24.}else{entries.len() as f64*18.+10.});ctx.set_global_alpha(1.);
     ctx.set_font("12px sans-serif");ctx.set_text_baseline("middle");
-    for (j,(label,color)) in entries.iter().enumerate(){let yy=y+14.+j as f64*18.;
+    for (j,(label,color)) in entries.iter().enumerate(){let yy=y+12.+if voltage {0.}else{j as f64*18.};
+        let xx=x+if voltage {j as f64*90.}else{0.};
         ctx.set_stroke_style_str(color);ctx.set_line_width(2.);
-        ctx.begin_path();ctx.move_to(x+7.,yy);ctx.line_to(x+27.,yy);ctx.stroke();
-        ctx.set_fill_style_str("#303534");ctx.fill_text(label,x+34.,yy)?;
+        ctx.begin_path();ctx.move_to(xx+7.,yy);ctx.line_to(xx+27.,yy);ctx.stroke();
+        ctx.set_fill_style_str("#303534");ctx.fill_text(label,xx+34.,yy)?;
     }Ok(())
 }
 

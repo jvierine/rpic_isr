@@ -164,7 +164,7 @@ async function loadRun(id){
  if(potentialFrames){potentialFrames.close();potentialFrames=null;}
  downloads=makeDownloads();
  try{
- const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=afa2bb4f46e0',import.meta.url);
+ const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=e53c7f6aa404',import.meta.url);
  const metadataUrl=new URL(run.metadata,location.href);
  const response=await fetch(metadataUrl,{cache:'no-cache'});if(!response.ok)throw Error('Recording metadata is not available');meta=await response.json();
  const asset=name=>new URL(meta[name],metadataUrl);
