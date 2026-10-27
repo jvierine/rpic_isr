@@ -117,7 +117,7 @@ function densityText(n){const exponent=Math.round(Math.log10(n)),digits='⁰¹²
 function updateRunHelp(){
  const per=meta.particles_per_species,saved=meta.recorded_particles_per_species||4096;
  for(const element of document.querySelectorAll('.saved-pool-count'))element.textContent=saved.toLocaleString();
- $('populationSummary').textContent=`This run contains ${(2*per).toLocaleString()} computational macroparticles: ${per.toLocaleString()} electrons and ${per.toLocaleString()} O⁺ ions. The original replay capture saved trajectories for ${(2*saved).toLocaleString()} of them (${saved.toLocaleString()} per species). Across the animation, ${meta.visible_particles_min??'some'}–${meta.visible_particles_max??'some'} of those saved tracks lie inside the camera view. The web display offers a limit up to ${(meta.animation_particles||100).toLocaleString()} particles; it cannot show tracks that were not saved. The default display limit is 100.`;
+ $('populationSummary').textContent=`This run contains ${(2*per).toLocaleString()} computational macroparticles: ${per.toLocaleString()} electrons and ${per.toLocaleString()} O⁺ ions. The original replay capture saved trajectories for ${(2*saved).toLocaleString()} of them (${saved.toLocaleString()} per species). Across the animation, ${meta.visible_particles_min??'some'}–${meta.visible_particles_max??'some'} of those saved tracks lie inside the camera view. The web display offers a limit up to ${(meta.animation_particles||100).toLocaleString()} particles; it cannot show tracks that were not saved. The default display limit is 1,000.`;
  for(const element of document.querySelectorAll('.population-count'))element.textContent=meta.particles_per_species.toLocaleString();
  $('fieldGrid').textContent=`${meta.field_solver_grid}×${meta.field_solver_grid}`;
  for(const element of document.querySelectorAll('.run-density'))element.textContent=densityText(meta.density_m3);
@@ -169,7 +169,7 @@ async function loadRun(id){
   particleData=new Uint16Array(positions);
   signal=new Float32Array(voltage);
   }
-  $('count').max=String(meta.animation_particles||100);$('count').value='100';
+  $('count').max=String(meta.animation_particles||100);$('count').value=String(Math.min(1000,Number($('count').max)));
  }else{
  const [previewPositions,previewPotential]=await Promise.all([loadBinary(asset('preview_positions_file')),loadBinary(asset('preview_potential_file'))]);
  replay=new Replay(new Uint16Array(previewPositions),new Int16Array(previewPotential),meta.pool_per_species,meta.field_grid,meta.length_lambda_de,10,meta.phi_quant_scale);
