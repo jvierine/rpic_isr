@@ -56,3 +56,27 @@ still covers the first approximately 104 us after burn-in; the full-rate
 voltage and all eight density modes cover the full 2 ms. Full raw HDF5
 remains a scientific output, not a browser download. The previous pilot
 is preserved. The two-hour outer timeout remains in force.
+
+The longer run completed in 713.07 s on GPU0. It saved 2.0000015 ms of
+full-rate voltage and eight density modes plus 4096 replay frames. Finite
+data, record duration, raw-voltage consistency and replay checks passed.
+Maximum total-energy excursion was 0.136060%; maximum recording-phase
+temperature excursions were 0.091288% (electrons) and 0.149676% (ions).
+There was no thermostat.
+
+However, late-half voltage variance was only 0.329813 of early-half variance.
+This remains a transient demonstration, not a stationary thermal spectrum.
+For the radar mode, electron-only perpendicular Maxwellian dielectric roots
+are 1.78006, 2.91138 and 3.36536 MHz; nearby finite-record Welch maxima are
+1.77367, 2.90498 and 3.36517 MHz. This supports a frequency comparison but
+does not establish equilibrium amplitudes or numerical convergence.
+`scripts/check_bernstein_spectrum.py` stores the comparison for eight modes
+in HDF5 and explicitly uses immobile ions for the MHz theory comparison.
+
+Web transports are being installed under juha-no:/mnt/shovel/picisr/data/
+bernstein-long, with a symlink from the public data directory. Potential
+uses scalar JPEG chunks (12.6 MB total); real particle endpoints use bounded
+chunks (32.8 MB total), and the anti-aliased voltage uses 0.63 MB. The browser
+loads animation chunks on demand. Full raw HDF5 remains on Seid under
+/scratch/data/juha/rpic_isr/results/bernstein-long-v1. Live browser acceptance
+is required before marking this deployment complete.

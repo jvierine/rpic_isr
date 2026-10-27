@@ -152,6 +152,7 @@ function updateRunHelp(){
  for(const el of document.querySelectorAll('.burn-duration'))el.textContent=`${meta.burn_ms.toFixed(3)} ms`;
  $('controlProtocol').textContent=meta.source?.control?.thermostatted?'After an unthermostatted 1 ms minimum burn and stationarity checks, separate weak velocity controls target 2000 K electrons and 1000 K ions. Recording follows at least 0.5 ms settling. This thermostat can affect spectra; the stationarity gate is not proof of kinetic equilibrium.':'This run uses an unthermostatted fixed-duration burn-in; that duration alone is not proof of equilibrium.';
  $('frameCadence').textContent=`${(meta.frame_dt_s*1e9).toFixed(2)} ns (8 PIC steps)`;
+ if(meta.magnetic_field_z_t&&meta.late_early_voltage_variance_ratio) $('controlProtocol').textContent+=` This is a transient magnetic demonstration: the late-half scattered-voltage variance is ${(100*meta.late_early_voltage_variance_ratio).toFixed(0)}% of the early-half value. Its spectrum is not a stationary thermal-equilibrium estimate; peak frequencies and spectral amplitudes must be assessed separately.`;
  $('playbackScale').textContent=`${(20*meta.frame_dt_s*1e6).toFixed(2)} µs of plasma time`;
  $('recordLength').textContent=`${(meta.signal_samples*meta.signal_dt_s*1e3).toFixed(2)} ms`;
 }

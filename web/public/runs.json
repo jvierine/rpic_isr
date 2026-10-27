@@ -2,6 +2,7 @@
   "default": "low",
   "runs": [
     {"id": "low", "label": "nₑ = 10¹⁰ m⁻³", "metadata": "data/extended-low/metadata-lossy.json"},
-    {"id": "high", "label": "nₑ = 10¹¹ m⁻³", "metadata": "data/submillion-high/metadata-lossy.json"}
+    {"id": "high", "label": "nₑ = 10¹¹ m⁻³", "metadata": "data/submillion-high/metadata-lossy.json"},
+    {"id": "bernstein", "label": "B = 35.72 μT · fce = 1 MHz", "metadata": "data/bernstein-long/metadata-lossy.json"}
   ]
 }
