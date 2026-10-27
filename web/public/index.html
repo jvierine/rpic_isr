@@ -29,9 +29,10 @@ window.MathJax = {
 <dialog id="help"><div class="help-top"><h2>Equations and implementation</h2><button id="helpClose" aria-label="Close help">Close ✕</button></div>
 <h3>Particle motion and electric potential</h3>
 <p>Electrons and O⁺ ions move in a periodic 2D box and generate a shared electric field.</p>
+<p id="magneticParameters"></p>
 <div class="equation">\[\begin{aligned}
 \frac{\mathrm d\mathbf{x}_s}{\mathrm dt} &= \mathbf{v}_s,
-& \frac{\mathrm d\mathbf{v}_s}{\mathrm dt} &= \frac{q_s}{m_s}\,\mathbf{E}(\mathbf{x}_s,t),\\[0.6em]
+& \frac{\mathrm d\mathbf{v}_s}{\mathrm dt} &= \frac{q_s}{m_s}\left[\mathbf{E}(\mathbf{x}_s,t)+\mathbf v_s\times B_0\hat{\mathbf z}\right],\\[0.6em]
 \mathbf{E} &= -\boldsymbol{\nabla}\phi,
 & \nabla^2\phi &= -\frac{\rho}{\varepsilon_0},\\[0.6em]
 \rho &= e(n_i-n_e).
@@ -73,5 +74,5 @@ window.MathJax = {
 
 <h3>Controls</h3><p><strong>Pause / Restart / time slider:</strong> inspect the recorded interval. <strong>Visible particles:</strong> change only the number of dots. <strong>Species:</strong> isolate electrons or ions. <strong>Colour contrast:</strong> change only the symmetric potential display range. Negative potential is blue, zero is light yellow and positive potential is red. Values beyond the displayed limits saturate in colour, not in the simulation. <strong>FFT window:</strong> trade frequency resolution against the number of available averages.</p>
 </dialog>
-<script type="module" src="app.js?v=101e782a9472"></script>
+<script type="module" src="app.js?v=2ea23133e6e7"></script>
 </body></html>

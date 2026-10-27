@@ -33,7 +33,16 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     # The bounded packed run uses an explicit stationarity/settling protocol,
     # not the older fixed 10 ms protocol. Never accept an arbitrary short burn.
     control = source.get("control")
-    if config["burn_ms"] < 10:
+    if config.get('bz_t', 0) != 0:
+        assert not control, 'Magnetic replay currently requires an unthermostatted run'
+        assert config['burn_ms'] >= .5
+        d = sf['diagnostics/0'][:]
+        assert np.isfinite(d).all()
+        assert np.max(np.abs(d[:,1]/d[0,1]-1)) < .01
+        record_d = d[d[:,0] >= config['burn_ms']*.001]
+        assert len(record_d)>1
+        assert np.max(np.abs(record_d[:,5:7]/record_d[0,5:7]-1)) < .01
+    elif config["burn_ms"] < 10:
         assert control and control["thermostatted"]
         assert control["activation_time_s"] >= .001
         assert config["burn_ms"]*1e-3-control["activation_time_s"] >= .0005
@@ -96,6 +105,8 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
         signal_dt_s=scales["dt_s"]*stride, signal_first_s=half*scales["dt_s"],
         signal_samples=len(signal), phi_quant_scale=quant_scale,
         density_m3=config["density"], te_K=config["te"], ti_K=config["ti"],
+        magnetic_field_z_t=config.get('bz_t',0),
+        electron_gyrofrequency_hz=abs(config.get('bz_t',0))*1.602176634e-19/(2*np.pi*9.1093837139e-31),
         ion_mass_amu=config["ion_mass_amu"], mass_ratio=scales["mass_ratio"],
         radar_mhz=config["radar_mhz"], k_bragg_rad_m=scales["k_bragg"],
         k_lambda_de=scales["k_bragg"]*scales["lambda_de"],

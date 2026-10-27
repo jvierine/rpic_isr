@@ -9,6 +9,8 @@ let meta, replay, signal, spectrum=[], running=true, frame=16, last=0, pending=0
 let theory=[],activeRunId='',theoryCatalog;
 const theoryCache=new Map();
 async function loadTheory(n,token){
+ if(meta.magnetic_field_z_t){theory=[];state.theoryReady=false;$('theory').disabled=true;$('theoryStatus').textContent='Magnetized run: unmagnetized theory does not apply';drawSpectrum();return;}
+ $('theory').disabled=false;
  try{
   theoryCatalog??=await fetch('data/theory/catalog.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('Theory unavailable');return r.json();});
   const entry=theoryCatalog[activeRunId];
@@ -128,7 +130,7 @@ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();state.ready=fa
 const annotationLayout=()=>{document.documentElement.style.setProperty('--toolbar-height',`${$('toolbar').getBoundingClientRect().height}px`);document.documentElement.style.setProperty('--header-height',`${document.querySelector('header').getBoundingClientRect().height}px`);};
 const annotationObserver=new ResizeObserver(annotationLayout);annotationObserver.observe($('toolbar'));annotationObserver.observe(document.querySelector('header'));annotationLayout();
 const loadBinary=url=>downloads.load(url);
-function densityText(n){const exponent=Math.round(Math.log10(n)),digits='⁰¹²³⁴⁵⁶⁷⁸⁹';return `10${String(exponent).split('').map(v=>digits[Number(v)]).join('')} m⁻³`;}
+function densityText(n){const exponent=Math.floor(Math.log10(n)),digits='⁰¹²³⁴⁵⁶⁷⁸⁹',mantissa=n/10**exponent;return `${Math.abs(mantissa-1)<1e-8?'':mantissa.toFixed(3)+' × '}10${String(exponent).split('').map(v=>digits[Number(v)]).join('')} m⁻³`;}
 function updateRunHelp(){
  const per=meta.particles_per_species,saved=meta.recorded_particles_per_species||4096;
  for(const element of document.querySelectorAll('.saved-pool-count'))element.textContent=saved.toLocaleString();
@@ -137,6 +139,7 @@ function updateRunHelp(){
  $('fieldGrid').textContent=`${meta.field_solver_grid}×${meta.field_solver_grid}`;
  for(const element of document.querySelectorAll('.run-density'))element.textContent=densityText(meta.density_m3);
  $('selectedParameters').textContent=`Selected run: nₑ = ${densityText(meta.density_m3)}; Tₑ = ${meta.te_K.toLocaleString()} K; Tᵢ = ${meta.ti_K.toLocaleString()} K; initial Bragg kλDe = ${meta.k_lambda_de.toFixed(3)}. Physical O⁺/electron mass ratio ${meta.mass_ratio.toFixed(0)}.`;
+ $('magneticParameters').textContent=meta.magnetic_field_z_t?`Uniform out-of-plane B = ${(meta.magnetic_field_z_t*1e6).toFixed(2)} μT; electron gyrofrequency ${(meta.electron_gyrofrequency_hz/1e6).toFixed(3)} MHz; plasma frequency ${(meta.omega_pe_rad_s/(2*Math.PI*1e6)).toFixed(3)} MHz. All resolved wavevectors are perpendicular to B. The Boris mover rotates both species with their physical charge-to-mass ratios.`:'B = 0 for this run; particle acceleration is electrostatic.';
  $('debyeLengthCm').textContent=(meta.lambda_de_m*100).toFixed(3);
  const braggLength=2*Math.PI/meta.k_bragg_rad_m;
  $('braggLengthCm').textContent=(100*braggLength).toFixed(2);
