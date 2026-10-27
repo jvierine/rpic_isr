@@ -13,18 +13,23 @@ m = json.loads((root / 'metadata.json').read_text())
 assert not m.get('potential_atlases'), 'Use an original export as input'
 n, g, pool = m['frames'], m['field_grid'], m['pool_per_species']
 x = np.fromfile(root / m['positions_file'], '<u2').reshape(n, 2, pool, 2)
-# Select at most 50 visible actual IDs/species/frame, as the original viewer
+# Select visible actual IDs/species/frame, as the original viewer
 # does. Store their TRUE next-frame endpoints too: changing the display subset
 # must never interpolate between two different particles.
-small=np.full((n,2,50,4),65535,dtype='<u2')
+visible_counts=np.array([np.sum(np.max(np.abs(f.astype(float)/65535*m['length_lambda_de']-m['length_lambda_de']/2),axis=-1)<5,axis=-1) for f in x])
+capacity=min(500,int(np.ceil(visible_counts.max()/10))*10)
+small=np.full((n,2,capacity,4),65535,dtype='<u2')
 for frame in range(n):
     distance=np.max(np.abs(x[frame].astype(float)/65535*m['length_lambda_de']-m['length_lambda_de']/2),axis=-1)
     for s in range(2):
-        ids=np.flatnonzero(distance[s]<5)[:50]
+        ids=np.flatnonzero(distance[s]<5)[:capacity]
         small[frame,s,:len(ids),:2]=x[frame,s,ids]
         small[frame,s,:len(ids),2:]=x[min(frame+1,n-1),s,ids]
-name = 'positions-' + hashlib.sha256(small.tobytes()).hexdigest()[:12] + '.bin'
-small.tofile(root / name)
+position_chunks=[]
+for start in range(0,n,64):
+    chunk=small[start:start+64]
+    name='particle-chunk-'+hashlib.sha256(chunk.tobytes()).hexdigest()[:12]+'.bin'
+    chunk.tofile(root/name);position_chunks.append(name)
 phi = np.fromfile(root / m['potential_file'], '<i2').reshape(n, g, g)
 # A fixed symmetric scale preserves zero and contrast across every chunk.
 scale = m['phi_quant_scale']
@@ -40,13 +45,16 @@ for start in range(0,n,64):
     delta=(decoded-atlas.astype(float))*scale/127.5
     errors.append(np.mean(delta**2));maximum=max(maximum,float(np.max(np.abs(delta))))
     compressed+=(root/filename).stat().st_size;atlases.append(filename)
-m.update(positions_file=name,pool_per_species=50,potential_atlases=atlases,
+m.update(positions_chunks=position_chunks,pool_per_species=capacity,potential_atlases=atlases,
+         recorded_particles_per_species=pool,
          positions_layout='frame-species-particle-xy-nextxy-u16',
          potential_chunk_frames=64,potential_codec='jpeg-scalar-95',
-         potential_decode_scale=scale,animation_particles=100,
+         potential_decode_scale=scale,animation_particles=2*capacity,
+         visible_particles_min=int(visible_counts.sum(axis=1).min()),
+         visible_particles_max=int(visible_counts.sum(axis=1).max()),
          compression=dict(bytes=compressed,rmse=float(np.sqrt(np.mean(errors))),
                           max_absolute_error=maximum,units='kB Te / e'))
-for key in ('potential_file','preview_positions_file','preview_potential_file'):
+for key in ('positions_file','potential_file','preview_positions_file','preview_potential_file'):
     m.pop(key,None)
 m['transport']='u16 same-particle xy/next-xy endpoints; scalar JPEG potential chunks; interleaved f32 signal'
 if m['source'].get('control'):

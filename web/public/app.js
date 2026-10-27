@@ -2,7 +2,7 @@ import init, {Replay, Welch, ScientificPlot, PlasmaView, ion_lowpass} from './pk
 import {ProgressDownloads} from './loading.js?v=ebb138dbfd70';
 import {simulationClock} from './annotations.js?v=e0a325e6b590';
 import {bindPlotNavigation} from './navigation.js?v=cf02acb86355';
-import {PotentialFrames,particlePoints} from './potential.js?v=2';
+import {PotentialFrames,particlePoints} from './potential.js?v=3';
 const $=id=>document.getElementById(id);
 let meta, replay, signal, spectrum=[], running=true, frame=16, last=0, pending=0, welch;
 const state={ready:false,frame:16,shown:0,segments:0};
@@ -25,14 +25,16 @@ function renderPlasma(){
  const field=potentialFrames?potentialFrames.field(frame):replay.field(frame);
  if(!field){state.buffering=true;$('playtime').textContent='Buffering…';if(potentialFrames?.error){status(potentialFrames.error.message,true);$('status').classList.remove('ready');}return;}
  if(state.buffering)$('playtime').textContent=running?'Recorded time, slowed down':'Paused';state.buffering=false;
- if(potentialFrames){state.potentialCacheBytes=[...potentialFrames.cache.values()].reduce((s,v)=>s+v.byteLength,0);state.potentialCacheChunks=potentialFrames.cache.size;state.potentialDownloadedBytes=potentialFrames.bytes;canvas.dataset.potentialCacheBytes=state.potentialCacheBytes;canvas.dataset.potentialCacheChunks=state.potentialCacheChunks;}
- const points=potentialFrames?particlePoints(particleData,meta,frame,Number($('count').value),$('electrons').checked,$('ions').checked):replay.points(frame,Number($('count').value),$('electrons').checked,$('ions').checked);
+ if(potentialFrames){state.potentialCacheBytes=[...potentialFrames.cache.values()].reduce((s,v)=>s+v.field.byteLength+(v.particles?.byteLength||0),0);state.potentialCacheChunks=potentialFrames.cache.size;state.potentialDownloadedBytes=potentialFrames.bytes;canvas.dataset.potentialCacheBytes=state.potentialCacheBytes;canvas.dataset.potentialCacheChunks=state.potentialCacheChunks;}
+ const count=Number($('count').value),electrons=$('electrons').checked,ions=$('ions').checked;
+ const points=meta.positions_chunks?potentialFrames.points(frame,count,electrons,ions):potentialFrames?particlePoints(particleData,meta,frame,count,electrons,ions):replay.points(frame,count,electrons,ions);
  const r=canvas.getBoundingClientRect();
  plasmaView.draw(field,points,r.width,r.height,Math.min(devicePixelRatio||1,2),meta.potential_length_lambda_de||meta.length_lambda_de,meta.phi_display_scale/Number($('contrast').value),$('potential').checked);
  let ne=0,ni=0;for(let j=2;j<points.length;j+=4){if(points[j]<.5)ne++;else ni++;}
  $('shown').textContent=`${ne} electrons · ${ni} ions`;
+ $('displaySubsetSummary').textContent=`The display limit is ${$('count').value} particles. This frame shows ${ne} electrons and ${ni} O⁺ ions. These are actual saved trajectories inside the 10 × 10 Debye-length camera view, not extra particles or a separate small simulation. The full simulated electron population contributes to the scattered signal, regardless of this display limit.`;
  state.frame=frame;state.shown=ne+ni;state.electrons=ne;state.ions=ni;
- const limit=Number($('count').value);$('countLabel').textContent=ne+ni<limit?`${ne+ni}/${limit}`:String(limit);
+ $('countLabel').textContent=$('count').value;
  $('clock').textContent=`t = ${(meta.burn_ms+frame*meta.frame_dt_s*1e3).toFixed(6)} ms`;
  const time=simulationClock(frame,meta.frame_dt_s,meta.omega_pe_rad_s);
  $('timeNs').textContent=time.nanoseconds.toFixed(1);$('timePeriods').textContent=time.plasmaPeriods.toFixed(2);
@@ -119,6 +121,8 @@ const annotationObserver=new ResizeObserver(annotationLayout);annotationObserver
 const loadBinary=url=>downloads.load(url);
 function densityText(n){const exponent=Math.round(Math.log10(n)),digits='⁰¹²³⁴⁵⁶⁷⁸⁹';return `10${String(exponent).split('').map(v=>digits[Number(v)]).join('')} m⁻³`;}
 function updateRunHelp(){
+ const per=meta.particles_per_species,saved=meta.recorded_particles_per_species||4096;
+ $('populationSummary').textContent=`This run contains ${(2*per).toLocaleString()} computational macroparticles: ${per.toLocaleString()} electrons and ${per.toLocaleString()} O⁺ ions. The original replay capture saved trajectories for ${(2*saved).toLocaleString()} of them (${saved.toLocaleString()} per species). Across the animation, ${meta.visible_particles_min??'some'}–${meta.visible_particles_max??'some'} of those saved tracks lie inside the camera view. The web display offers a limit up to ${(meta.animation_particles||100).toLocaleString()} particles; it cannot show tracks that were not saved. The default display limit is 100.`;
  for(const element of document.querySelectorAll('.population-count'))element.textContent=meta.particles_per_species.toLocaleString();
  $('fieldGrid').textContent=`${meta.field_solver_grid}×${meta.field_solver_grid}`;
  for(const element of document.querySelectorAll('.run-density'))element.textContent=densityText(meta.density_m3);
@@ -129,8 +133,6 @@ function updateRunHelp(){
  $('energyDrift').textContent=`${meta.max_energy_excursion_percent.toFixed(3)}% maximum energy excursion`;
  for(const el of document.querySelectorAll('.burn-duration'))el.textContent=`${meta.burn_ms.toFixed(3)} ms`;
  $('controlProtocol').textContent=meta.source?.control?.thermostatted?'After an unthermostatted 1 ms minimum burn and stationarity checks, separate weak velocity controls target 2000 K electrons and 1000 K ions. Recording follows at least 0.5 ms settling. This thermostat can affect spectra; the stationarity gate is not proof of kinetic equilibrium.':'This run uses an unthermostatted fixed-duration burn-in; that duration alone is not proof of equilibrium.';
- const link=$('scientificDownload');link.hidden=!meta.scientific_download;link.href=meta.scientific_download?new URL(meta.scientific_download,location.href):'#';
- const captureLink=$('captureDownload');captureLink.hidden=!meta.capture_download;captureLink.href=meta.capture_download?new URL(meta.capture_download,location.href):'#';
  $('frameCadence').textContent=`${(meta.frame_dt_s*1e9).toFixed(2)} ns (8 PIC steps)`;
  $('playbackScale').textContent=`${(20*meta.frame_dt_s*1e6).toFixed(2)} µs of plasma time`;
  $('recordLength').textContent=`${(meta.signal_samples*meta.signal_dt_s*1e3).toFixed(2)} ms`;
@@ -159,15 +161,20 @@ async function loadRun(id){
  downloads.plan(asset('preview_potential_file'),2*meta.field_grid**2*2);
  downloads.plan(asset('potential_file'),meta.frames*meta.field_grid**2*2);
  }
- downloads.plan(asset('positions_file'),meta.frames*meta.pool_per_species*(meta.positions_layout?16:8));
+ if(!meta.positions_chunks)downloads.plan(asset('positions_file'),meta.frames*meta.pool_per_species*(meta.positions_layout?16:8));
  downloads.plan(asset('signal_file'),meta.signal_samples*8);
  updateRunHelp();
  if(!wasmLoaded){status('Loading WebAssembly…');await init({module_or_path:await loadBinary(wasmUrl)});plasmaView=new PlasmaView(canvas,$('particles'));wasmLoaded=true;}
  if(meta.potential_atlases){
   potentialFrames=new PotentialFrames(meta,metadataUrl);
+  if(meta.positions_chunks){
+   const [voltage]=await Promise.all([loadBinary(asset('signal_file')),potentialFrames.load(0)]);signal=new Float32Array(voltage);
+  }else{
   const [positions,voltage]=await Promise.all([loadBinary(asset('positions_file')),loadBinary(asset('signal_file')),potentialFrames.load(0)]);
   particleData=new Uint16Array(positions);
-  signal=new Float32Array(voltage);$('count').max='100';$('count').value='100';
+  signal=new Float32Array(voltage);
+  }
+  $('count').max=String(meta.animation_particles||100);$('count').value='100';
  }else{
  const [previewPositions,previewPotential]=await Promise.all([loadBinary(asset('preview_positions_file')),loadBinary(asset('preview_potential_file'))]);
  replay=new Replay(new Uint16Array(previewPositions),new Int16Array(previewPotential),meta.pool_per_species,meta.field_grid,meta.length_lambda_de,10,meta.phi_quant_scale);

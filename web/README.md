@@ -31,10 +31,14 @@ decoded chunks are cached (12.58 MB high, 3.15 MB low). Arbitrary seeking
 requests the relevant chunk, not the preceding movie. In-flight requests are
 also capped at three.
 
-At each frame the export selects up to 50 visible actual particles per species,
+At each frame the export selects up to 500 visible actual particles per species,
 with their true next-frame endpoints, rather than joining different IDs as
-the subset changes. This costs 3.28 MB for 4096 frames and keeps ~100 dots
-visible instead of allowing a fixed initial set to disappear from the crop.
+the subset changes. Particle endpoints are streamed in the same 64-frame chunks
+as the field, rather than fetched up front. The low recording supports a 1000
+particle cap; the high recording contains 141–211 saved tracks inside the view
+(a padded 240 cap exposes them all). Default remains 100. The slider label
+always shows the selected limit, never a frame-dependent actual/limit fraction;
+tabular fixed-width count elements prevent layout shifts during playback.
 The full high-run voltage is 0.892 MB and remains available for zoom/FFT.
 Original HDF5 downloads are separate from browser loading, on the data share.
 `node web/test_potential.mjs` checks the same-ID interpolation and bounded cache.
