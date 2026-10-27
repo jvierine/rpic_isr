@@ -73,11 +73,6 @@ function chart(c,xmin,xmax,ymin,ymax,xlabel,ylabel){
   plotRenderers.set(c.id,plot);
   const redraw=c.id==='signal'?drawSignal:c.id==='plasmaLine'?drawPlasmaLine:drawSpectrum;
   bindPlotNavigation(overlay,plot,redraw,()=>({x:70,y:30,width:overlay.clientWidth-88,height:overlay.clientHeight-78}));
-  const controls=document.createElement('div');controls.className='plot-navigation';
-  for(const [label,title,action] of [ ['+','Zoom in',()=>plot.zoom(.5,.5,.7)],['−','Zoom out',()=>plot.zoom(.5,.5,1/.7)],['Reset','Reset view',()=>plot.reset()] ]){
-   const b=document.createElement('button');b.textContent=label;b.title=title;b.setAttribute('aria-label',`${c.id} ${title}`);b.onclick=()=>{action();redraw();};controls.append(b);
-  }
-  c.parentElement.append(controls);
  }
  const p=plotRenderers.get(c.id),r=c.getBoundingClientRect();
  p.begin(r.width,r.height,Math.min(devicePixelRatio||1,2),xmin,xmax,ymin,ymax,xlabel,ylabel);

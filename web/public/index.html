@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="A window into a two-dimensional particle-in-cell plasma: electrons, ions, electric potential and incoherent scatter.">
-<title>PIC ISR · Plasma in motion</title><link rel="stylesheet" href="style.css?v=a676fe827724"><script>
+<title>PIC ISR · Plasma in motion</title><link rel="stylesheet" href="style.css?v=2b89f215283e"><script>
 window.MathJax = {
   tex: {inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']]},
   svg: {fontCache: 'global'}
@@ -51,7 +51,7 @@ window.MathJax = {
 <p id="displaySubsetSummary"></p>
 <p id="controlProtocol"></p>
 <p>The scattered-signal plot overlays a slowly varying, low-pass-filtered complex envelope (thick lines) on the full signal (thin lines). Blue is real and orange is imaginary. A symmetric Gaussian FIR has a 30 kHz −3 dB power cutoff and no phase delay. Rust/Wasm applies linear FFT convolution to the recorded signal; it does not change the particles, fields, or spectrum calculation. The unsupported filter edges are omitted rather than padded or wrapped. This separates the slow ion-band component from fast electron-frequency oscillations without claiming a perfect physical decomposition.</p>
-<p><strong>Plot navigation:</strong> +/− zooms, dragging selects a zoom rectangle, Shift-drag pans, and scrolling over a plot zooms around the pointer. Reset, double-click or right-click restores the full view. Scroll outside the plot axes to scroll the panel.</p>
+<p><strong>Plot navigation:</strong> Dragging selects a zoom rectangle, Shift-drag pans, and scrolling over a plot zooms around the pointer. Double-click or right-click restores the full view. Scroll outside the plot axes to scroll the panel.</p>
 
 <h3>Theoretical spectrum</h3>
 <p>The ochre curve is the collisionless, unmagnetized Maxwellian prediction with the selected run's density, separate electron and ion temperatures, O⁺ mass and Bragg wave number. It includes finite Debye length and both ion and electron modes:</p>
@@ -72,5 +72,5 @@ window.MathJax = {
 
 <h3>Controls</h3><p><strong>Pause / Restart / time slider:</strong> inspect the recorded interval. <strong>Visible particles:</strong> change only the number of dots. <strong>Species:</strong> isolate electrons or ions. <strong>Colour contrast:</strong> change only the symmetric potential display range. Negative potential is blue, zero is light yellow and positive potential is red. Values beyond the displayed limits saturate in colour, not in the simulation. <strong>FFT window:</strong> trade frequency resolution against the number of available averages.</p>
 </dialog>
-<script type="module" src="app.js?v=1c06e901fa45"></script>
+<script type="module" src="app.js?v=560c47043f5b"></script>
 </body></html>
