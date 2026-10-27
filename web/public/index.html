@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="A window into a two-dimensional particle-in-cell plasma: electrons, ions, electric potential and incoherent scatter.">
-<title>PIC ISR · Plasma in motion</title><link rel="stylesheet" href="style.css?v=c57d4111522e"><script>
+<title>PIC ISR · Plasma in motion</title><link rel="stylesheet" href="style.css?v=5a128fdfc1de"><script>
 window.MathJax = {
   tex: {inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']]},
   svg: {fontCache: 'global'}
@@ -15,6 +15,7 @@ window.MathJax = {
 <canvas id="particles" aria-hidden="true"></canvas>
 <header><strong>PIC ISR</strong><select id="run" aria-label="Simulation run" disabled></select><span>10 × 10 λ<sub>De</sub></span><span id="clock" hidden>Loading…</span><button id="plotsToggle" aria-expanded="false">Signal / spectrum</button><button id="helpOpen">Help</button><button id="fullscreen">⛶</button></header>
 <div id="debyeScale" class="simulation-annotation" aria-label="One electron Debye length"><div class="scale-label">\(1\,\lambda_{\mathrm{De}}\)</div><div class="scale-ruler"></div></div>
+<div id="braggScale" class="simulation-annotation" aria-label="One tenth of a Bragg wavelength"><div class="scale-label">\(\lambda_{\mathrm B}/10\) <span class="bragg-value">(\(\lambda_{\mathrm B}=\)<span id="braggLengthCm"></span> cm)</span></div><div class="scale-ruler"></div></div>
 <div id="simulationTime" class="simulation-annotation"><div class="time-origin">Time after burn-in</div><div>\(t=\) <span id="timeNs">0.0</span> \(\mathrm{ns}\) \(=\) <span id="timePeriods">0.00</span> \((1/f_p)\)</div></div>
 <div id="status" role="status"><span id="statusText">Loading the recorded plasma…</span><div class="loading-row"><progress id="loadingProgress" aria-label="Loading simulation data" max="100"></progress><span id="loadingDetails">Connecting…</span></div></div>
 <div id="toolbar">
@@ -67,5 +68,5 @@ window.MathJax = {
 
 <h3>Controls</h3><p><strong>Pause / Restart / time slider:</strong> inspect the recorded interval. <strong>Visible particles:</strong> change only the number of dots. <strong>Species:</strong> isolate electrons or ions. <strong>Colour contrast:</strong> change only the symmetric potential display range. Negative potential is blue, zero is light yellow and positive potential is red. Values beyond the displayed limits saturate in colour, not in the simulation. <strong>FFT window:</strong> trade frequency resolution against the number of available averages.</p>
 </dialog>
-<script type="module" src="app.js?v=9133fbc0b258"></script>
+<script type="module" src="app.js?v=99e4337fac75"></script>
 </body></html>

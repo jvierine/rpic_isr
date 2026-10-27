@@ -123,6 +123,9 @@ function updateRunHelp(){
  for(const element of document.querySelectorAll('.run-density'))element.textContent=densityText(meta.density_m3);
  $('selectedParameters').textContent=`Selected run: nₑ = ${densityText(meta.density_m3)}; Tₑ = ${meta.te_K.toLocaleString()} K; Tᵢ = ${meta.ti_K.toLocaleString()} K; initial Bragg kλDe = ${meta.k_lambda_de.toFixed(3)}. Physical O⁺/electron mass ratio ${meta.mass_ratio.toFixed(0)}.`;
  $('debyeLengthCm').textContent=(meta.lambda_de_m*100).toFixed(3);
+ const braggLength=2*Math.PI/meta.k_bragg_rad_m;
+ $('braggLengthCm').textContent=(100*braggLength).toFixed(2);
+ $('braggScale').style.width=`${braggLength/meta.lambda_de_m}vw`;
  $('viewWidthCm').textContent=(meta.lambda_de_m*1000).toFixed(2);
  $('fullBoxDebye').textContent=meta.length_lambda_de.toFixed(2);
  $('energyDrift').textContent=`${meta.max_energy_excursion_percent.toFixed(3)}% maximum energy excursion`;
