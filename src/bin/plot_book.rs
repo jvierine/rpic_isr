@@ -29,7 +29,7 @@ fn main() -> Result<()> {
         width_mm: 150.,
         font_pt: 11.,
     });
-    f.height_mm = 166.;
+    f.height_mm = 140.;
     let cmap = ColorMap::new(vec![[0.22, 0.29, 0.70], [1., 1., 0.86], [0.75, 0.17, 0.15]])?;
     let scale = f.scale(Scale::new([-20., 20.], Normalization::Linear, cmap)?);
     let mut p = Panel::new(
@@ -113,17 +113,14 @@ fn main() -> Result<()> {
         r"$\phi\ [\mathrm{mV}]$",
         vec![-20., -10., 0., 10., 20.],
     ));
-    let mut e = Label::new(r"Electrons: $\mathbf{v}_e$", 42., 145.);
+    let mut e = Label::new(r"Electrons: $\mathbf{v}_e$", 47., 23.);
     e.color = colors[0].into();
+    e.background = Some("#ffffef".into());
     f.labels.push(e);
-    let mut i = Label::new(r"O$^+$ ions: $242\,\mathbf{v}_i$", 103., 145.);
+    let mut i = Label::new(r"O$^+$ ions: $242\,\mathbf{v}_i$", 47., 30.);
     i.color = colors[1].into();
+    i.background = Some("#ffffef".into());
     f.labels.push(i);
-    f.labels.push(Label::new(
-        r"Dashed trails: preceding $2.15\,\mu\mathrm{s}$",
-        75.,
-        155.,
-    ));
     for ext in ["pdf", "png", "svg"] {
         f.save(format!("{}.{}", args[2], ext))?;
     }
