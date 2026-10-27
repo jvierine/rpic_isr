@@ -6,6 +6,7 @@ use std::path::Path;
 
 fn main() -> Result<()> {
     let c = Config::parse();
+    anyhow::ensure!(c.bz_t == 0., "Use rpic_isr_2d for a magnetic field");
     let s = Scales::new(&c)?;
     if Path::new(&c.output).exists() {
         bail!("Output already exists: {}; choose a new filename", c.output);

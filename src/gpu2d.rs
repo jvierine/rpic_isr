@@ -27,6 +27,9 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let push = module.load_function("push2")?;
     let trace = module.load_function("trace2")?;
     let web_path = std::env::var("RPIC_WEB_CAPTURE").ok();
+    let web_pool: usize = std::env::var("RPIC_WEB_POOL").ok().map(|s| s.parse()).transpose()?.unwrap_or(4096);
+    anyhow::ensure!((4096..=32768).contains(&web_pool), "Invalid replay particle pool");
+    anyhow::ensure!(web_path.is_none() || c.cells*c.cells*c.ppc >= web_pool, "Replay pool exceeds species population");
     let web_frames: usize = std::env::var("RPIC_WEB_FRAMES").ok()
         .map(|s| s.parse()).transpose()?.unwrap_or(1024);
     anyhow::ensure!((2..=8192).contains(&web_frames), "Invalid web frame count");
@@ -77,6 +80,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     let mut efreq = stream.alloc_zeros::<float2>((2 * nn * batches) as usize)?;
     let mut e = stream.alloc_zeros::<float2>((2 * nn * batches) as usize)?;
     let mut obs = stream.alloc_zeros::<float2>(s.steps * seeds.len())?;
+    let mut modes = stream.alloc_zeros::<float2>(8 * s.steps * seeds.len())?;
     let frames = (s.burn_steps + s.steps + 1).min(2048) as i32;
     let mut tracks = stream.alloc_zeros::<float2>(frames as usize * 32 * seeds.len())?;
     let fft = CudaFft::plan_many(
@@ -103,7 +107,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
     };
     let mut web_phi_freq = stream.alloc_zeros::<float2>(nn as usize)?;
     let mut web_phi = stream.alloc_zeros::<float2>(nn as usize)?;
-    let mut web_points = stream.alloc_zeros::<float2>(8192)?;
+    let mut web_points = stream.alloc_zeros::<float2>(2*web_pool)?;
     let mut web_x = Vec::<f32>::new();
     let mut web_fields = Vec::<f32>::new();
     let cfgp = LaunchConfig::for_num_elems((n * batches) as u32);
@@ -164,7 +168,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
         if web_path.is_some() && step >= s.burn_steps {
             let elapsed = step - s.burn_steps;
             if elapsed.is_multiple_of(8) && elapsed / 8 < web_frames {
-                let pool = 4096i32;
+                let pool = web_pool as i32;
                 unsafe {
                     stream
                         .launch_builder(&web_positions)
@@ -173,7 +177,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                         .arg(&mut web_points)
                         .arg(&n)
                         .arg(&pool)
-                        .launch(LaunchConfig::for_num_elems(8192))?;
+                        .launch(LaunchConfig::for_num_elems((2*web_pool) as u32))?;
                     stream
                         .launch_builder(&web_potential)
                         .arg(&freq)
@@ -217,6 +221,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                 .arg(&norm)
                 .arg(&record)
                 .arg(&steps)
+                .arg(&mut modes)
                 .launch(cfgf)?;
         }
         fft.exec_c2c(&mut efreq, &mut e, FftDirection::Inverse)?;
@@ -236,6 +241,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                     .arg(&mu)
                     .arg(&kick)
                     .arg(&drift)
+                    .arg(&crate::pic2d::magnetic_normalization(c, s))
                     .launch(cfgp)?;
             }
             Ok(())
@@ -302,13 +308,14 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                 .arg(&mu)
                 .arg(&dt)
                 .arg(&dt)
+                .arg(&crate::pic2d::magnetic_normalization(c, s))
                 .launch(cfgp)?;
         }
     }
     let voltage = stream.clone_dtoh(&obs)?;
     let positions = stream.clone_dtoh(&tracks)?;
     if let Some(path) = web_path {
-        let frames = web_x.len() / 8192 / 2;
+        let frames = web_x.len() / (2*web_pool) / 2;
         anyhow::ensure!(frames == web_frames, "Incomplete web recording");
         if let Some(parent) = std::path::Path::new(&path).parent() {
             std::fs::create_dir_all(parent)?;
@@ -321,8 +328,9 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
                 "metadata_json",
                 serde_json::to_vec(
                     &serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),
-            "capture":"post-burn positions and endpoint potential; stride 8; fixed IDs p=j*(particles_per_species/4096) for each species",
-            "solver":"explicit 2D2V TSC CUDA leapfrog, not the implicit prototype","seed":seeds[0],
+            "capture":"post-burn positions and endpoint potential; stride 8; fixed IDs p=j*(particles_per_species/pool) for each species",
+            "recorded_particles_per_species":web_pool,"magnetic_field_z_t":c.bz_t,
+            "solver":"explicit 2D2V TSC CUDA, Boris for nonzero Bz","seed":seeds[0],
             "potential_grid":web_grid,"potential_start_node":web_start,"frames":frames}),
                 )?,
             ),
@@ -330,7 +338,7 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
             f.new_dataset_builder().with_data(&data).create(name)?;
         }
         f.new_dataset::<f32>()
-            .shape([frames, 8192, 2])
+            .shape([frames, 2*web_pool, 2])
             .create("positions_lambda_de")?
             .write_raw(&web_x)?;
         f.new_dataset::<f32>()
@@ -341,6 +349,10 @@ pub fn simulate(c: &Config, s: &Scales, seeds: &[u64]) -> Result<Vec<Run>> {
             .shape([voltage.len(), 2])
             .create("raw_signal")?
             .write_raw(&voltage.iter().flat_map(|p| [p.x, p.y]).collect::<Vec<_>>())?;
+        let mode_values = stream.clone_dtoh(&modes)?;
+        f.new_dataset::<f32>().shape([s.steps,8,2])
+            .create("electron_density_modes_1_to_8")?
+            .write_raw(&mode_values.iter().flat_map(|p| [p.x,p.y]).collect::<Vec<_>>())?;
         f.flush()?;
         drop(f);
         std::fs::rename(format!("{path}.tmp"), path)?;

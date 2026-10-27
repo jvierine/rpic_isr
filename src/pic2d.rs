@@ -245,15 +245,32 @@ impl Solver2 {
         obs
     }
 }
+/// Boris velocity update, with signed q/m in electron units and B normalized
+/// so that b = e B_z / (m_e omega_pe). Positions remain in the x-y plane.
+pub fn boris(v: [f32; 2], e: [f32; 2], qm: f32, dt: f32, b: f32) -> [f32; 2] {
+    if b == 0. { return [v[0] + dt*qm*e[0], v[1] + dt*qm*e[1]]; }
+    let h = 0.5*dt*qm;
+    let t = h*b;
+    let s = 2.*t/(1.+t*t);
+    let u = [v[0]+h*e[0], v[1]+h*e[1]];
+    let prime = [u[0]+t*u[1], u[1]-t*u[0]];
+    [u[0]+s*prime[1]+h*e[0], u[1]-s*prime[0]+h*e[1]]
+}
+
+pub fn magnetic_normalization(c: &Config, s: &Scales) -> f32 {
+    (crate::QE*c.bz_t/(crate::ME*s.omega_pe)) as f32
+}
+
 pub fn push(p: &mut Particles2, e: &[[f32; 2]], c: &Config, s: &Scales, kick: f32, drift: f32) {
+    let b = magnetic_normalization(c, s);
     for (x, v, qm) in [
         (&mut p.xe, &mut p.ve, -1.),
         (&mut p.xi, &mut p.vi, 1. / s.mass_ratio as f32),
     ] {
         for (x, v) in x.iter_mut().zip(v) {
             let field = gather(e, *x, c.cells, s.length as f32);
+            *v = boris(*v, field, qm, kick, b);
             for d in 0..2 {
-                v[d] += kick * qm * field[d];
                 x[d] = (x[d] + drift * v[d]).rem_euclid(s.length as f32);
             }
         }
@@ -277,8 +294,9 @@ pub fn diagnostic2(
         let mut vv = 0.;
         for (i, (&x, &v)) in x.iter().zip(v).enumerate() {
             let field = gather(e, x, c.cells, s.length as f32);
+            let centered = boris(v, field, (q/m) as f32, 0.5*c.dt as f32, magnetic_normalization(c,s));
             for d in 0..2 {
-                let vel = v[d] as f64 + 0.5 * c.dt * q / m * field[d] as f64;
+                let vel = centered[d] as f64;
                 mean[d] += vel;
                 vv += vel * vel;
                 if i < 16 {
@@ -348,6 +366,35 @@ pub fn simulate(c: &Config, s: &Scales, seed: u64) -> Result<Run> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn boris_gyro_energy_sign_and_phase() {
+        for qm in [-1., 1./29166.21578_f32] {
+            let dt = 0.06;
+            // Resolve 200 gyro periods for either species with identical rotation per step.
+            let b = 1./(3.*qm.abs());
+            let mut v = [1_f32, 0.];
+            let steps = 62832;
+            for _ in 0..steps { v = boris(v,[0.,0.],qm,dt,b); }
+            assert!((v[0]*v[0]+v[1]*v[1]-1.).abs()<0.001);
+            let angle = -2.*((0.5*dt*qm*b) as f64).atan()*steps as f64;
+            assert!((v[0] as f64-angle.cos()).abs()<0.001);
+            assert!((v[1] as f64-angle.sin()).abs()<0.001);
+        }
+    }
+    #[test]
+    fn boris_crossed_field_drift_and_reversibility() {
+        let e = [0.2, -0.1];
+        let b = 0.4;
+        // E cross B / B^2 is a fixed velocity for both charge signs.
+        for qm in [-1., 1./29166.21578_f32] {
+            let drift = [e[1]/b, -e[0]/b];
+            let moved = boris(drift,e,qm,0.06,b);
+            assert!((moved[0]-drift[0]).abs()<1e-6 && (moved[1]-drift[1]).abs()<1e-6);
+            let v = [0.7,-0.3];
+            let back = boris(boris(v,e,qm,0.06,b),e,qm,-0.06,b);
+            assert!((back[0]-v[0]).abs()<1e-6 && (back[1]-v[1]).abs()<1e-6);
+        }
+    }
     #[test]
     fn tsc_conserves_charge_and_gathers_constant() {
         let n = 16;

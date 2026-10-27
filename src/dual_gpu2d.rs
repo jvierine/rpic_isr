@@ -386,6 +386,7 @@ fn state(
 }
 
 pub fn simulate(original: &Config, options: Controls) -> Result<(Config, Scales, Run)> {
+    anyhow::ensure!(original.bz_t == 0., "Magnetic field currently requires rpic_isr_2d; packed mover is not Boris");
     let timer = Instant::now();
     let mut c = original.clone();
     c.backend = Backend::Cuda;

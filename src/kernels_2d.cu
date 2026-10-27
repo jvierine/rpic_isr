@@ -22,10 +22,14 @@ extern "C" __global__ void deposit2(const Pair* xe,const Pair* xi,Pair* g,int n,
  int nn=ng*ng,b=p/n;Pair* ne=g+2*b*nn;Pair* rho=ne+nn;float w=(float)nn/n;
  add2(ne,xe[p],ng,length,w);add2(rho,xi[p],ng,length,w);
 }
-extern "C" __global__ void poisson2(const Pair* all,Pair* field,Pair* obs,int ng,int batches,float length,int mode,float norm,int record,int steps) {
+extern "C" __global__ void poisson2(const Pair* all,Pair* field,Pair* obs,int ng,int batches,float length,int mode,float norm,int record,int steps,Pair* modes) {
  int z=blockIdx.x*blockDim.x+threadIdx.x,nn=ng*ng;if(z>=nn*batches)return;
  int b=z/nn,j=z%nn,x=j%ng,y=j/ng;const Pair* f=all+2*b*nn;
  if(j==0&&record>=0){obs[b*steps+record].x=norm*f[mode].x;obs[b*steps+record].y=norm*f[mode].y;}
+ if(j>=1&&j<=8&&record>=0){
+ float a=3.14159265358979323846f*mode/ng,d=3.14159265358979323846f*j/ng;
+ float ratio=(sinf(a)/a)/(sinf(d)/d),w=norm*ratio*ratio*ratio;
+ modes[(b*steps+record)*8+j-1]={w*f[j].x,w*f[j].y};}
  float kx=6.2831853071795864769f*(x<=ng/2?x:x-ng)/length;
  float ky=6.2831853071795864769f*(y<=ng/2?y:y-ng)/length;float k2=kx*kx+ky*ky;
  float ax=(k2==0||x==ng/2)?0:kx/(k2*nn),ay=(k2==0||y==ng/2)?0:ky/(k2*nn);
@@ -45,14 +49,18 @@ __device__ Pair gather2(const Pair* e,Pair x,int ng,float length) {
  return out;
 }
 __device__ float wrap2(float x,float l){return x-floorf(x/l)*l;}
-__device__ void move2(Pair* x,Pair* v,const Pair* e,int ng,float length,float qm,float kick,float drift) {
+__device__ void move2(Pair* x,Pair* v,const Pair* e,int ng,float length,float qm,float kick,float drift,float b) {
  Pair field=gather2(e,*x,ng,length);
- v->x+=kick*qm*field.x;v->y+=kick*qm*field.y;
+ if(b==0) {v->x+=kick*qm*field.x;v->y+=kick*qm*field.y;}
+ else {float h=0.5f*kick*qm,t=h*b,s=2*t/(1+t*t);
+ float ux=v->x+h*field.x,uy=v->y+h*field.y;
+ float px=ux+t*uy,py=uy-t*ux;
+ v->x=ux+s*py+h*field.x;v->y=uy-s*px+h*field.y;}
  x->x=wrap2(x->x+drift*v->x,length);x->y=wrap2(x->y+drift*v->y,length);
 }
-extern "C" __global__ void push2(Pair* xe,Pair* ve,Pair* xi,Pair* vi,const Pair* fields,int n,int ng,int batches,float length,float mu,float kick,float drift) {
+extern "C" __global__ void push2(Pair* xe,Pair* ve,Pair* xi,Pair* vi,const Pair* fields,int n,int ng,int batches,float length,float mu,float kick,float drift,float b) {
  int p=blockIdx.x*blockDim.x+threadIdx.x;if(p>=n*batches)return;const Pair* e=fields+2*(p/n)*ng*ng;
- move2(xe+p,ve+p,e,ng,length,-1,kick,drift);move2(xi+p,vi+p,e,ng,length,1/mu,kick,drift);
+ move2(xe+p,ve+p,e,ng,length,-1,kick,drift,b);move2(xi+p,vi+p,e,ng,length,1/mu,kick,drift,b);
 }
 // Optional web recording: evenly indexed, fixed particle IDs, both species.
 extern "C" __global__ void web_positions2(const Pair* xe,const Pair* xi,Pair* out,int n,int pool) {

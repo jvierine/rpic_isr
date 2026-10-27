@@ -59,6 +59,10 @@ pub struct Config {
     pub te: f64,
     #[arg(long, default_value_t = 1000.)]
     pub ti: f64,
+    /// Uniform out-of-plane magnetic field in tesla (explicit 2D2V only).
+    #[arg(long, default_value_t = 0.)]
+    #[serde(default)]
+    pub bz_t: f64,
     #[arg(long, default_value_t = 16.)]
     pub ion_mass_amu: f64,
     /// Normalized timestep omega_pe * dt; do not use a reduced electron mass.
@@ -120,6 +124,7 @@ impl Scales {
             c.duration_ms,
             c.burn_ms,
             c.sample_us,
+            c.bz_t,
         ]
         .iter()
         .any(|v| !v.is_finite())
