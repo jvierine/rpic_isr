@@ -117,3 +117,34 @@ remain to be measured. A spectral peak alone is not sufficient evidence.
 Run launch and validation helpers are `scripts/run_oblique_pair.sh` and
 `scripts/check_oblique.py`. The latter accepts two files only for a CPU/GPU
 regression, not for comparing physically different tail/control outputs.
+
+## Completed delayed-ring pair: preliminary quantitative analysis
+
+Both runs exited successfully: ring 306.284 s and control 312.582 s, in
+`/scratch/data/juha/rpic_isr/results/ring-pair-v1`. Production binary SHA256:
+`f120fc249c52cfdb15667977bd310f773bd188092caf54b636979a68f3b98a00`.
+Finite complete captures contain 4096 frames, 32768 tracks and 226195 raw
+voltage samples; raw capture voltage exactly matches the scientific output.
+Frame stride is 55 timesteps. Injection occurred at 19.999941 microseconds.
+
+After subtracting the separately measured injection work, maximum numerical
+energy excursions are 0.003676% (ring) and 0.005444% (control). Ring injection
+adds 5.884730 in units N_e k_B T_core; the resulting deliberate total-energy
+increase must not be called numerical heating.
+
+`scripts/analyze_ring_pair.py` saves the comparison to HDF5. A fixed 20.5–23.5
+microsecond fit to log power in 0.5-microsecond bins gives amplitude growth
+gamma/(2 pi)=125.6 kHz, R-squared 0.9971, versus the initial linear prediction
+139.4 kHz. Control has no comparable exponential trend (R-squared 0.014).
+This fits total radar density-mode power, not an isolated eigenmode, so it
+is preliminary agreement rather than a converged eigenfrequency validation.
+Power saturates around 24–26 microseconds. Ring perpendicular temperature
+falls from about 119677 K just after injection to 108853 K at 25 microseconds,
+while core perpendicular temperature rises from about 2002 K to 3133 K.
+
+For the same post-30-microsecond interval and identical absolute PSD estimator,
+integrated power in |f|=2.7–3.4 MHz is 37.1 dB above the thermal control.
+The nonlinear spectrum's strongest bin in that band is about 3.22 MHz;
+do not label that late peak as the initial 3.0365 MHz eigenfrequency.
+The transient is not a stationary ISR spectrum or a model fit to observed
+photoelectrons. Web export and browser QA remain pending.
