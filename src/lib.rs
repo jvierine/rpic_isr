@@ -128,7 +128,7 @@ impl Scales {
         }
         if c.cells < 16
             || !c.cells.is_power_of_two()
-            || c.ppc < 2
+            || c.ppc < 1
             || c.bragg_mode == 0
             || c.bragg_mode > c.cells / 8
             || c.realizations == 0
@@ -296,5 +296,12 @@ mod parameter_tests {
         let s = Scales::new(&c).unwrap();
         assert!((s.k_bragg - 18.45181957).abs() < 1e-7);
         assert!((s.mass_ratio - 29166.21578).abs() < 0.001);
+    }
+    #[test]
+    fn one_ppc_is_valid_but_zero_is_not() {
+        let mut c=Config::parse_from(["test","--cells","512","--ppc","1","--bragg-mode","2","--density","1e11","--dt",".06"]);
+        assert!(Scales::new(&c).is_ok());
+        c.ppc=0;
+        assert!(Scales::new(&c).is_err());
     }
 }

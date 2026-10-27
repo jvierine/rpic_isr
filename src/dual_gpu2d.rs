@@ -412,6 +412,10 @@ pub fn simulate(original: &Config, options: Controls) -> Result<(Config, Scales,
         "Invalid particle partition"
     );
     let web_path = std::env::var("RPIC_WEB_CAPTURE").ok();
+    let web_pool = std::env::var("RPIC_WEB_POOL")
+        .ok().map(|v|v.parse::<usize>()).transpose()?.unwrap_or(4096);
+    ensure!((500..=131072).contains(&web_pool) && web_pool % count == 0,
+        "Invalid particle replay pool");
     let web_frames = std::env::var("RPIC_WEB_FRAMES")
         .ok()
         .map(|v| v.parse::<usize>())
@@ -428,7 +432,7 @@ pub fn simulate(original: &Config, options: Controls) -> Result<(Config, Scales,
             "Capture exists"
         );
         ensure!(
-            total % 4096 == 0 && s.steps >= 8 * (web_frames - 1),
+            total % web_pool == 0 && s.steps >= 8 * (web_frames - 1),
             "Invalid web sampling"
         );
     }
@@ -442,7 +446,7 @@ pub fn simulate(original: &Config, options: Controls) -> Result<(Config, Scales,
                 index * total / count,
                 (index + 1) * total / count,
                 c.cells,
-                4096 / count,
+                web_pool / count,
                 s.length as f32,
             )
             .with_context(|| format!("GPU {device} initialization"))?,
@@ -840,14 +844,14 @@ pub fn simulate(original: &Config, options: Controls) -> Result<(Config, Scales,
     actual.burn_steps = actual_burn;
     if let Some(path) = web_path {
         ensure!(
-            web_x.len() == web_frames * 8192 * 2,
+            web_x.len() == web_frames * web_pool * 4,
             "Incomplete web positions"
         );
         if let Some(p) = std::path::Path::new(&path).parent() {
             std::fs::create_dir_all(p)?;
         }
         let f = hdf5::File::create(format!("{path}.tmp"))?;
-        let metadata = serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),"solver":"explicit packed TSC particle-sharded CUDA PIC","devices":devices,"capture":"fixed global particle IDs and native cropped potential","potential_grid":crop,"potential_start_node":start,"frames":web_frames,"seed":c.seed,"control":control.metadata()});
+        let metadata = serde_json::json!({"source_revision":env!("RPIC_BUILD_REV"),"solver":"explicit packed TSC particle-sharded CUDA PIC","devices":devices,"capture":"fixed global particle IDs and native cropped potential","recorded_particles_per_species":web_pool,"potential_grid":crop,"potential_start_node":start,"frames":web_frames,"seed":c.seed,"control":control.metadata()});
         for (name, data) in [
             ("config_json", serde_json::to_vec(&c)?),
             ("scales_json", serde_json::to_vec(&actual)?),
@@ -856,7 +860,7 @@ pub fn simulate(original: &Config, options: Controls) -> Result<(Config, Scales,
             f.new_dataset_builder().with_data(&data).create(name)?;
         }
         f.new_dataset::<f32>()
-            .shape([web_frames, 8192, 2])
+            .shape([web_frames, 2*web_pool, 2])
             .create("positions_lambda_de")?
             .write_raw(&web_x)?;
         f.new_dataset::<f32>()

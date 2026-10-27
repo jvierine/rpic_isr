@@ -3,6 +3,7 @@ import {ProgressDownloads} from './loading.js?v=ebb138dbfd70';
 import {simulationClock} from './annotations.js?v=e0a325e6b590';
 import {bindPlotNavigation} from './navigation.js?v=dc0b1c501859';
 import {PotentialFrames,particlePoints} from './potential.js?v=01bfbefb4745';
+import {signalTrace} from './waveform.js?v=3cb07a38a949';
 const $=id=>document.getElementById(id);
 let meta, replay, signal, spectrum=[], running=true, frame=16, last=0, pending=0, welch;
 const state={ready:false,frame:16,shown:0,segments:0};
@@ -66,23 +67,15 @@ let waveform;
 function prepareWaveform(){
  const n=signal.length/2,duration=meta.signal_first_s+(n-1)*meta.signal_dt_s;
  const filtered=ion_lowpass(signal,meta.signal_dt_s,30000);
- let amplitude=0;const real=[],imag=[],slowReal=[],slowImag=[];
- for(let j=0;j<n;j++){const t=(meta.signal_first_s+j*meta.signal_dt_s)*1e3;real.push([t,signal[2*j]]);imag.push([t,signal[2*j+1]]);slowReal.push([t,filtered[2*j]]);slowImag.push([t,filtered[2*j+1]]);amplitude=Math.max(amplitude,Math.abs(signal[2*j]),Math.abs(signal[2*j+1]));}
- waveform={real,imag,slowReal,slowImag,amplitude:amplitude*1.08,duration};
+ let amplitude=0;
+ for(let j=0;j<signal.length;j++)amplitude=Math.max(amplitude,Math.abs(signal[j]));
+ waveform={real:[signal,0],imag:[signal,1],slowReal:[filtered,0],slowImag:[filtered,1],amplitude:amplitude*1.08,duration};
 }
 // Display-only extrema reduction: retain peaks at overview scale and recover
 // individual source samples on zoom. Never changes the signal used for the PSD.
-function signalTrace(values,lo,hi,pixels){
- const dt=meta.signal_dt_s*1e3,first=values[0][0];
- const start=Math.max(0,Math.floor((lo-first)/dt)-1),end=Math.min(values.length,Math.ceil((hi-first)/dt)+2);
- const step=Math.max(1,Math.ceil((end-start)/Math.max(1,pixels))),out=[];
- for(let j=start;j<end;j+=step){let min=j,max=j;for(let k=j;k<Math.min(j+step,end);k++){if(Number.isFinite(values[k][1])){if(!Number.isFinite(values[min][1])||values[k][1]<values[min][1])min=k;if(!Number.isFinite(values[max][1])||values[k][1]>values[max][1])max=k;}}
-  if(min<=max){out.push(values[min]);if(max!==min)out.push(values[max]);}else{out.push(values[max],values[min]);}}
- return out;
-}
 function drawSignal(){if(!waveform||$('plots').hidden)return;const duration=waveform.duration*1e3,p=chart($('signal'),0,duration,-waveform.amplitude,waveform.amplitude,'Time after burn-in [ms]','Normalized amplitude');
  const view=Array.from(p.viewport_bounds()),pixels=Math.ceil($('signal').clientWidth),key=JSON.stringify([view[0],view[2],pixels]);
- if(waveform.cacheKey!==key){waveform.traces=[waveform.real,waveform.imag,waveform.slowReal,waveform.slowImag].map(v=>signalTrace(v,view[0]*duration,view[2]*duration,pixels));waveform.cacheKey=key;}
+ if(waveform.cacheKey!==key){waveform.traces=[waveform.real,waveform.imag,waveform.slowReal,waveform.slowImag].map(v=>signalTrace(v,view[0]*duration,view[2]*duration,pixels,meta.signal_dt_s*1e3,meta.signal_first_s*1e3));waveform.cacheKey=key;}
  const [real,imag,slowReal,slowImag]=waveform.traces,show=$('lowpass').checked;curve(p,real,show?'#8dbbd6':'#126ca4',1);curve(p,imag,show?'#d8ad89':'#b64a16',1);
  if(show){curve(p,slowReal,'#126ca4',2.5);curve(p,slowImag,'#b64a16',2.5);}
  const t=frame*meta.frame_dt_s*1e3;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
@@ -123,6 +116,7 @@ const loadBinary=url=>downloads.load(url);
 function densityText(n){const exponent=Math.round(Math.log10(n)),digits='⁰¹²³⁴⁵⁶⁷⁸⁹';return `10${String(exponent).split('').map(v=>digits[Number(v)]).join('')} m⁻³`;}
 function updateRunHelp(){
  const per=meta.particles_per_species,saved=meta.recorded_particles_per_species||4096;
+ for(const element of document.querySelectorAll('.saved-pool-count'))element.textContent=saved.toLocaleString();
  $('populationSummary').textContent=`This run contains ${(2*per).toLocaleString()} computational macroparticles: ${per.toLocaleString()} electrons and ${per.toLocaleString()} O⁺ ions. The original replay capture saved trajectories for ${(2*saved).toLocaleString()} of them (${saved.toLocaleString()} per species). Across the animation, ${meta.visible_particles_min??'some'}–${meta.visible_particles_max??'some'} of those saved tracks lie inside the camera view. The web display offers a limit up to ${(meta.animation_particles||100).toLocaleString()} particles; it cannot show tracks that were not saved. The default display limit is 100.`;
  for(const element of document.querySelectorAll('.population-count'))element.textContent=meta.particles_per_species.toLocaleString();
  $('fieldGrid').textContent=`${meta.field_solver_grid}×${meta.field_solver_grid}`;

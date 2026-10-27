@@ -25,7 +25,7 @@ with h5py.File(capture_path) as c, h5py.File(spectrum_path) as s:
     d = s["diagnostics/0"][:]
     assert all(np.isfinite(a).all() for a in (positions, phi, raw, d))
     source = json.loads(bytes(c["metadata_json"][:]))
-    assert positions.shape == (m["frames"], 8192, 2)
+    assert positions.shape == (m["frames"], 2*m.get('recorded_particles_per_species',4096), 2)
     assert phi.shape == (m["frames"], source.get("potential_grid", config["cells"]), source.get("potential_grid", config["cells"]))
     assert raw.shape == (scales["steps"], 2)
     assert np.array_equal(raw[:, 0], s["raw/0/real"][:])

@@ -57,8 +57,5 @@ m.update(positions_chunks=position_chunks,pool_per_species=capacity,potential_at
 for key in ('positions_file','potential_file','preview_positions_file','preview_potential_file'):
     m.pop(key,None)
 m['transport']='u16 same-particle xy/next-xy endpoints; scalar JPEG potential chunks; interleaved f32 signal'
-if m['source'].get('control'):
-    m['scientific_download']='downloads/high512-spectrum.h5'
-    m['capture_download']='downloads/high512-capture.h5'
 (root/'metadata-lossy.json').write_text(json.dumps(m,indent=2)+'\n')
 print(json.dumps(dict(potential_bytes=compressed,positions_bytes=small.nbytes,**m['compression']),indent=2))

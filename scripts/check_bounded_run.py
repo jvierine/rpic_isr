@@ -13,7 +13,8 @@ with h5py.File(p/'live.h5') as f, h5py.File(p/'spectrum.h5') as sf:
     control=json.loads(bytes(sf['control_0/metadata_json'][:]))
     assert np.isfinite(h).all() and np.isfinite(d).all()
     assert np.array_equal(h,sf['control_0/history'][:])
-    assert c['te']==2000 and c['ti']==1000 and c['cells']==512
+    assert c['te']==2000 and c['ti']==1000
+    assert c['cells'] in (256,512) and c['bragg_mode'] in (1,2)
     assert control['elapsed_s']<7200
     assert control['activation_time_s']>=.001
     assert c['burn_ms']*.001-control['activation_time_s']>=.0005
@@ -25,6 +26,7 @@ with h5py.File(p/'live.h5') as f, h5py.File(p/'spectrum.h5') as sf:
     r=h[h[:,9]==2]
     assert np.all(np.abs(r[0,3:5]/[2000,1000]-1)<.01)
     result=dict(elapsed_s=control['elapsed_s'],record_ms=c['duration_ms'],
+        total_particles=2*c['cells']**2*c['ppc'],bragg_wavelengths=c['bragg_mode'],
         raw_energy_change_percent=100*(d[-1,1]/d[0,1]-1),
         max_raw_energy_excursion_percent=100*np.max(np.abs(d[:,1]/d[0,1]-1)),
         max_work_corrected_energy_drift_percent=np.max(np.abs(h[:,8])),

@@ -8,6 +8,7 @@ app=app.replace(/\.\/loading\.js(?:\?v=[a-z0-9]+)?/,'./loading.js?v='+hash('load
 app=app.replace(/\.\/annotations\.js(?:\?v=[a-z0-9]+)?/,'./annotations.js?v='+hash('annotations.js'));
 app=app.replace(/\.\/navigation\.js(?:\?v=[a-z0-9]+)?/,'./navigation.js?v='+hash('navigation.js'));
 app=app.replace(/\.\/potential\.js(?:\?v=[a-z0-9_-]+)?/,'./potential.js?v='+hash('potential.js'));
+app=app.replace(/\.\/waveform\.js(?:\?v=[a-z0-9_-]+)?/,'./waveform.js?v='+hash('waveform.js'));
 app=app.replace(/picisr_web_bg\.wasm\?v=[A-Za-z0-9_]+/,'picisr_web_bg.wasm?v='+hash('pkg/picisr_web_bg.wasm'));
 fs.writeFileSync(new URL('app.js',root),app);
 let html=fs.readFileSync(new URL('index.html',root),'utf8');

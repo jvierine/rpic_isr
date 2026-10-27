@@ -7,6 +7,7 @@ import hashlib
 import json
 import pathlib
 import sys
+import os
 
 import h5py
 import numpy as np
@@ -24,7 +25,8 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     raw = f["raw_signal"][:]
     frames = x.shape[0]
     source_grid = source.get("potential_grid", config["cells"])
-    assert x.shape == (frames, 8192, 2) and frames >= 1024
+    pool=x.shape[1]//2
+    assert x.shape == (frames, 2*pool, 2) and frames >= 1024
     assert phi.shape == (frames, source_grid, source_grid)
     assert all(np.isfinite(a).all() for a in (x, phi, raw))
     assert x.min() >= 0 and x.max() <= scales["length"] * (1 + 1e-6)
@@ -56,7 +58,11 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     assert np.max(np.abs(encoded_x.astype(float)/65535*scales["length"]-x)) < scales["length"]/65535
     assert np.max(np.abs(encoded_phi.astype(float)/32767*quant_scale-field)) < quant_scale/32767
     # Same anti-alias filter and edge trimming as the Rust spectrum::decimate.
-    stride = 8
+    stride = int(os.environ.get('RPIC_WEB_SIGNAL_STRIDE','8'))
+    assert stride>=1 and stride & (stride-1)==0
+    # The displayed plasma band must lie safely within the FIR passband.
+    band=max(2,int(np.ceil(1.6*scales['omega_pe']/(2*np.pi*1e6))))*1e6
+    assert .4/(stride*scales['dt_s'])>1.1*band
     half = 16 * stride
     t = np.arange(-half, half+1, dtype=float)
     fc = .4 / stride
@@ -80,7 +86,7 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     metadata = dict(
         positions_file=files["positions"], potential_file=files["potential"], signal_file=files["signal"],
         preview_positions_file=files["preview_positions"],preview_potential_file=files["preview_potential"],
-        frames=frames, pool_per_species=4096, field_grid=grid,
+        frames=frames, pool_per_species=pool, field_grid=grid,
         potential_length_lambda_de=grid*dx,
         potential_grid_spacing_lambda_de=dx,
         potential_crop_start_node=source.get("potential_start_node", 0)+start,
