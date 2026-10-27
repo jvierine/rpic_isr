@@ -34,3 +34,15 @@ The Boris electron gyrofrequency error at this timestep is approximately
 -0.00333 percent. CUDA/CPU regression and pilot diagnostics must be checked
 before interpreting any spectral peaks. A gyroharmonic peak alone is not
 proof of a collective Bernstein mode; compare with dielectric roots.
+
+Initial verification (2026-10-27): all 26 library tests passed. The 64-square,
+16384-particle/species, 1-microsecond CPU/CUDA regression passed: voltage
+relative L2 errors 8.39e-7 and 1.55e-6; position 2.84e-7; velocity 2.53e-6.
+Both backends had 0.005557% maximum energy excursion. These are short-run
+implementation checks, not validation of the Bernstein spectrum.
+
+The larger pilot was launched on Seid GPU0 in
+`/scratch/data/juha/rpic_isr/results/bernstein-boris-v1`, with an external
+two-hour timeout. Build label `bernstein-boris-v1`; source commit `5408378`.
+It has not yet passed the completed-output checks. Do not replace the public
+unmagnetized replay with this dataset before checking those outputs.
