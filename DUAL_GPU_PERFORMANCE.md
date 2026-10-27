@@ -3,15 +3,16 @@
 ## Replacement below one million total particles, 2026-10-27
 
 The user requested a longer run, up to 1,000,000 TOTAL macroparticles and
-enough actual replay tracks for 1,000 dots inside the camera. A new run is
-active in `/scratch/data/juha/rpic_isr/results/submillion-long-FLXOr5`
-(PID 90972, outer timeout 90970): 256², 7 ppc/species = 458,752 electrons
+enough actual replay tracks for 1,000 dots inside the camera. The run completed
+with exit 0 in 4414.09 s (73.57 minutes), in
+`/scratch/data/juha/rpic_isr/results/submillion-long-FLXOr5`:
+256², 7 ppc/species = 458,752 electrons
 and 458,752 O+ ions, 917,504 total. It keeps ne=1e11, Te=2000 K, Ti=1000 K,
 physical mass ratio and dt*omega_pe=.06. The periodic box is ONE Bragg period,
 not two: the scattering k is retained, but the finite-box modes change.
 This is not evidence of box-size or particle-number convergence.
 
-Target record is 16 ms after the same minimum 1 ms unthermostatted burn,
+The complete record is 16 ms after the same minimum 1 ms unthermostatted burn,
 stationarity gate and >=0.5 ms settling. The 1% work-corrected energy guard,
 6900 s internal deadline and 7190+5 s outer cap remain in force. Never restart
 or extend past the budget without user permission. Pilot wall time predicts
@@ -23,8 +24,10 @@ heated more quickly; reducing dt alone did not solve their spatial noise.
 `RPIC_WEB_POOL=16384` saves 32,768 actual globally distributed tracks. A separate
 GPU capture smoke test with pool32768/species passed finite data and had
 1342–1432 actual tracks in the smaller camera even in the TWO-period box.
-The new single-period capture should contain more, but its actual count must
-be verified after completion. Pool size is now explicit metadata, not fixed8192.
+The single-period capture contains 2550–2843 actual tracks in the camera.
+The compact replay selects 500 per species at every saved frame. Between frames,
+some leave the crop (977–1000 shown at tested quarter-frame offsets).
+Pool size is explicit metadata, not fixed8192.
 The browser still loads only three compact animation chunks, not these full
 capture arrays. `RPIC_WEB_SIGNAL_STRIDE=16` retains the high plasma band with
 an explicit anti-alias passband check, reducing the 16 ms browser signal to
@@ -35,8 +38,16 @@ Production binary SHA256:
 `f546b24a109c4cf4105000ede3ba17dd0e01bd9d38778f2bcd7a9afedbb06541`,
 build label `half-million-wide-pool-v1`. Presets: `run_submillion_long.sh` and
 `benchmark_halfmillion.sh`. Old code, data and the public run remain intact
-until the replacement completes and passes checks. Follow-up automation
-`finish-longer-sub-million-pic-replay` watches actual progress and verification.
+as the replacement passes checks. Complete finite records, raw voltage agreement,
+4096 frames, control-phase timing and the thermostat work ledger passed validation.
+Raw energy changed +0.01201%, maximum raw excursion was 0.04823%, and maximum
+work-corrected drift was 0.82627%. Recording temperatures changed -0.05008%
+(electrons) and +0.00844% (ions), ending at 2002.30 K and 1000.48 K.
+The thermostat removed 0.0122308 normalized energy units; stable raw energy alone
+would conceal that work. Late/early plasma-band powers were 1.0708 and 0.9331.
+These tests do not establish equilibrium or spectral convergence.
+The web voltage is 2.38 MB; potential JPEGs total 15.02 MB and particle chunks
+32.77 MB, loaded in bounded chunks. Scalar JPEG RMSE is 0.000918 kBTe/e.
 
 ## Measured progress, 2026-10-26
 

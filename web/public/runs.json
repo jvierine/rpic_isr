@@ -2,6 +2,6 @@
   "default": "low",
   "runs": [
     {"id": "low", "label": "nₑ = 10¹⁰ m⁻³", "metadata": "data/extended-low/metadata-lossy.json"},
-    {"id": "high", "label": "nₑ = 10¹¹ m⁻³", "metadata": "data/bounded-high/metadata-lossy.json"}
+    {"id": "high", "label": "nₑ = 10¹¹ m⁻³", "metadata": "data/submillion-high/metadata-lossy.json"}
   ]
 }

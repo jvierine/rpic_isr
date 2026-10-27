@@ -1,5 +1,11 @@
 # rpic_isr
 
+The replacement high-density replay records **16 ms** with **917,504 total
+particles**, Te=2000 K and Ti=1000 K, and offers up to **1,000 displayed tracks**.
+It completed in 73.6 minutes. Maximum work-corrected energy drift was 0.826%;
+the thermostat and one-Bragg-period box remain limitations, not convergence tests.
+See [verified run details](DUAL_GPU_PERFORMANCE.md).
+
 **Packed 2D GPU solver and bounded high-resolution run:** the new experimental
 `rpic_dual` executable supports one/two GPUs, GPU-side moment reductions, live
 HDF5 energy diagnostics, and separate delayed electron/ion temperature controls.
