@@ -36,6 +36,11 @@ name = "plot_implicit"
 path = "src/bin/plot_implicit.rs"
 required-features = ["plot"]
 
+[[bin]]
+name = "plot_book"
+path = "src/bin/plot_book.rs"
+required-features = ["plot"]
+
 [profile.release]
 codegen-units = 1
 lto = "thin"
