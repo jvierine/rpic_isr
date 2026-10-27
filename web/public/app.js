@@ -1,7 +1,7 @@
 import init, {Replay, Welch, ScientificPlot, PlasmaView, ion_lowpass, inset_legend} from './pkg/picisr_web.js?v=31d16ba49250';
 import {ProgressDownloads} from './loading.js?v=ebb138dbfd70';
 import {simulationClock} from './annotations.js?v=e0a325e6b590';
-import {bindPlotNavigation} from './navigation.js?v=dc0b1c501859';
+import {bindPlotNavigation} from './navigation.js?v=a0857bc752dc';
 import {PotentialFrames,particlePoints} from './potential.js?v=01bfbefb4745';
 import {signalTrace} from './waveform.js?v=3cb07a38a949';
 const $=id=>document.getElementById(id);

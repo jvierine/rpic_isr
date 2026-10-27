@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="A window into a two-dimensional particle-in-cell plasma: electrons, ions, electric potential and incoherent scatter.">
-<title>PIC ISR · Plasma in motion</title><link rel="stylesheet" href="style.css?v=2b89f215283e"><script>
+<title>PIC ISR · Plasma in motion</title><link rel="stylesheet" href="style.css?v=3a171cdae2a8"><script>
 window.MathJax = {
   tex: {inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']]},
   svg: {fontCache: 'global'}
@@ -24,7 +24,8 @@ window.MathJax = {
 </div>
 <section id="plots" hidden><button id="plotsClose" aria-label="Close signal and spectrum" title="Close">×</button><div class="signal-card"><div class="panel-heading"><h2>Scattered signal</h2></div><p class="chart-caption">Full signal: thin · low-pass: thick · <label><input id="lowpass" type="checkbox" checked>30 kHz low-pass</label></p><div class="scientific-plot"><canvas id="signal" aria-label="Real and imaginary scattered voltage versus time"></canvas><canvas id="signalLines" aria-hidden="true"></canvas></div></div>
 <div class="spectrum-card"><div class="panel-heading"><h2>Ion-line spectrum</h2></div><p class="chart-caption" id="specCaption">Calculated from the recorded voltage.</p><p class="chart-caption"><label><input id="theory" type="checkbox" checked><span style="color:#b66b14">Theoretical spectrum</span></label> · <label><input id="linearSpectrum" type="checkbox">Linear spectrum</label><br><span id="theoryStatus"></span></p><div class="scientific-plot"><canvas id="spectrum" aria-label="Ion-line power spectral density versus frequency offset"></canvas><canvas id="spectrumLines" aria-hidden="true"></canvas></div><div class="spectrum-controls"><label>FFT <select id="fft"><option value="8192" selected>8,192</option><option value="16384">16,384</option><option value="32768">32,768</option><option value="65536">65,536</option></select></label><button id="recalculate" disabled>Recalculate</button><span id="segments">Waiting for data</span></div></div>
-<div class="plasma-line-card"><div class="panel-heading"><h2>Plasma-line spectrum</h2></div><p class="chart-caption">Full spectrum · ion line and plasma lines · same full-population signal</p><div class="scientific-plot"><canvas id="plasmaLine" aria-label="Positive and negative plasma-line power spectral density versus frequency offset in MHz"></canvas><canvas id="plasmaLineLines" aria-hidden="true"></canvas></div></div></section>
+<div class="plasma-line-card"><div class="panel-heading"><h2>Plasma-line spectrum</h2></div><p class="chart-caption">Full spectrum · ion line and plasma lines · same full-population signal</p><div class="scientific-plot"><canvas id="plasmaLine" aria-label="Positive and negative plasma-line power spectral density versus frequency offset in MHz"></canvas><canvas id="plasmaLineLines" aria-hidden="true"></canvas></div></div>
+<p class="plot-gestures"><strong>Touch:</strong> pinch to zoom · drag to pan · double-tap to reset.<br><strong>Mouse:</strong> scroll or drag a box to zoom · Shift-drag to pan · double-click to reset. Scroll outside the axes to move the panel.</p></section>
 <dialog id="help"><div class="help-top"><h2>Equations and implementation</h2><button id="helpClose" aria-label="Close help">Close ✕</button></div>
 <h3>Particle motion and electric potential</h3>
 <p>Electrons and O⁺ ions move in a periodic 2D box and generate a shared electric field.</p>
@@ -51,7 +52,7 @@ window.MathJax = {
 <p id="displaySubsetSummary"></p>
 <p id="controlProtocol"></p>
 <p>The scattered-signal plot overlays a slowly varying, low-pass-filtered complex envelope (thick lines) on the full signal (thin lines). Blue is real and orange is imaginary. A symmetric Gaussian FIR has a 30 kHz −3 dB power cutoff and no phase delay. Rust/Wasm applies linear FFT convolution to the recorded signal; it does not change the particles, fields, or spectrum calculation. The unsupported filter edges are omitted rather than padded or wrapped. This separates the slow ion-band component from fast electron-frequency oscillations without claiming a perfect physical decomposition.</p>
-<p><strong>Plot navigation:</strong> Dragging selects a zoom rectangle, Shift-drag pans, and scrolling over a plot zooms around the pointer. Double-click or right-click restores the full view. Scroll outside the plot axes to scroll the panel.</p>
+<p><strong>Plot navigation:</strong> On iPhone or another touchscreen, place two fingers inside the axes and pinch to zoom. Drag with one finger to pan, and double-tap to restore the full view. With a mouse, drag a zoom rectangle or scroll to zoom, Shift-drag to pan, and double-click or right-click to reset. Start outside the plot axes to scroll the panel.</p>
 
 <h3>Theoretical spectrum</h3>
 <p>The ochre curve is the collisionless, unmagnetized Maxwellian prediction with the selected run's density, separate electron and ion temperatures, O⁺ mass and Bragg wave number. It includes finite Debye length and both ion and electron modes:</p>
@@ -72,5 +73,5 @@ window.MathJax = {
 
 <h3>Controls</h3><p><strong>Pause / Restart / time slider:</strong> inspect the recorded interval. <strong>Visible particles:</strong> change only the number of dots. <strong>Species:</strong> isolate electrons or ions. <strong>Colour contrast:</strong> change only the symmetric potential display range. Negative potential is blue, zero is light yellow and positive potential is red. Values beyond the displayed limits saturate in colour, not in the simulation. <strong>FFT window:</strong> trade frequency resolution against the number of available averages.</p>
 </dialog>
-<script type="module" src="app.js?v=c9fa9347dfb5"></script>
+<script type="module" src="app.js?v=101e782a9472"></script>
 </body></html>

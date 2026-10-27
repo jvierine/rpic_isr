@@ -19,6 +19,7 @@ dialog .equation{font:16px/1.5 system-ui,sans-serif;overflow-x:auto;padding:12px
 #countLabel{width:4ch;min-width:4ch;font-variant-numeric:tabular-nums}
 #shown{width:27ch;flex:0 0 27ch;font-variant-numeric:tabular-nums;white-space:nowrap}
 #plots{padding-top:28px;z-index:100;isolation:isolate}
+.plot-gestures{grid-column:1/-1;margin:0;font-size:11px;line-height:1.6;color:#424c47}
 .scientific-plot canvas[id$="Lines"]{touch-action:none;cursor:grab}
 .scientific-plot canvas[id$="Lines"]:active{cursor:grabbing}
 #plotsClose{position:absolute;right:5px;top:1px;z-index:3;font-size:20px;line-height:1;padding:1px 6px;background:transparent;border:0}
