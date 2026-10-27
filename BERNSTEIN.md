@@ -73,10 +73,16 @@ does not establish equilibrium amplitudes or numerical convergence.
 `scripts/check_bernstein_spectrum.py` stores the comparison for eight modes
 in HDF5 and explicitly uses immobile ions for the MHz theory comparison.
 
-Web transports are being installed under juha-no:/mnt/shovel/picisr/data/
+Web transports are installed under juha-no:/mnt/shovel/picisr/data/
 bernstein-long, with a symlink from the public data directory. Potential
 uses scalar JPEG chunks (12.6 MB total); real particle endpoints use bounded
 chunks (32.8 MB total), and the anti-aliased voltage uses 0.63 MB. The browser
 loads animation chunks on demand. Full raw HDF5 remains on Seid under
-/scratch/data/juha/rpic_isr/results/bernstein-long-v1. Live browser acceptance
-is required before marking this deployment complete.
+/scratch/data/juha/rpic_isr/results/bernstein-long-v1.
+
+The transient replay is deployed at https://juha.no/picisr/?run=bernstein.
+Live browser checks confirmed the potential and real particle tracks, physical
+clock and rulers, full 2 ms signal, magnetic spectra, disabled unmagnetized
+theory, drag zoom/reset, close control, natural final-frame stop, and switching
+back to both existing densities. Help explicitly describes the variance decay
+and does not claim stationary thermal equilibrium.
