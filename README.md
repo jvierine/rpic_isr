@@ -6,6 +6,21 @@ It completed in 73.6 minutes. Maximum work-corrected energy drift was 0.826%;
 the thermostat and one-Bragg-period box remain limitations, not convergence tests.
 See [verified run details](DUAL_GPU_PERFORMANCE.md).
 
+The web viewer overlays a collisionless Maxwellian theoretical PSD for each
+run, retaining separate electron and ion temperatures. The checkbox applies to
+both ion-line and full-spectrum views; a second checkbox switches both between
+dB and linear power density. `scripts/export_web_theory.py` generates small
+content-hashed browser arrays and HDF5 validation data. It integrates narrow
+dielectric resonances before convolution with each selected periodic-Hann
+window, and includes the export anti-alias filter. No amplitude is fitted.
+Eightfold versus sixteenfold frequency refinement differs by less than 0.8%
+of the peak for the present two runs and four FFT sizes. This is a numerical
+check of the reference, not physical convergence of the PIC model. The
+unequal-temperature formulation follows Rosenbluth and Rostoker (1962),
+doi:10.1063/1.1724446; neither a collision operator nor the PIC thermostat is
+part of this reference. Browser checks covered run switching, FFT changes,
+theory toggling, linear/dB axes, and zoom/reset on 2026-10-27.
+
 **Packed 2D GPU solver and bounded high-resolution run:** the new experimental
 `rpic_dual` executable supports one/two GPUs, GPU-side moment reductions, live
 HDF5 energy diagnostics, and separate delayed electron/ion temperature controls.

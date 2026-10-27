@@ -6,6 +6,23 @@ import {PotentialFrames,particlePoints} from './potential.js?v=01bfbefb4745';
 import {signalTrace} from './waveform.js?v=3cb07a38a949';
 const $=id=>document.getElementById(id);
 let meta, replay, signal, spectrum=[], running=true, frame=16, last=0, pending=0, welch;
+let theory=[],activeRunId='',theoryCatalog;
+const theoryCache=new Map();
+async function loadTheory(n,token){
+ try{
+  theoryCatalog??=await fetch('data/theory/catalog.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw Error('Theory unavailable');return r.json();});
+  const entry=theoryCatalog[activeRunId];
+  if(!entry)throw Error('Theory unavailable');
+  for(const [key,value] of Object.entries(entry.parameters))if(Math.abs(meta[key]-value)>Math.abs(value)*1e-10)throw Error('Theory parameters do not match this run');
+  const file=entry.fft[n];if(!file)throw Error('Theory unavailable for this FFT');
+  if(!theoryCache.has(file)){const r=await fetch(`data/theory/${file}`);if(!r.ok)throw Error('Theory unavailable');theoryCache.set(file,new Float32Array(await r.arrayBuffer()));}
+  if(token!==pending)return;
+  theory=theoryCache.get(file);if(theory.length!==n)throw Error('Invalid theory length');
+  state.theoryReady=true;state.theoryRun=activeRunId;state.theoryBins=n;$('theoryStatus').textContent='Theory: Maxwellian, collisionless · same Hann window';drawSpectrum();
+ }catch(e){if(token===pending){theory=[];state.theoryReady=false;$('theoryStatus').textContent=e.message;}}
+}
+function spectrumValue(value){return $('linearSpectrum').checked?value*1e6:10*Math.log10(Math.max(value,1e-20));}
+function drawTheory(plot,scale,band){if(!$('theory').checked||theory.length!==spectrum.length)return;const n=theory.length,points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/scale;if(Math.abs(f)<=band)points.push([f,spectrumValue(theory[j])]);}curve(plot,points,'#b66b14',1.7);}
 const state={ready:false,frame:16,shown:0,segments:0};
 // Small browser-QA surface: no file paths or generator metadata are rendered.
 window.picisrState=state;
@@ -79,23 +96,19 @@ function drawSignal(){if(!waveform||$('plots').hidden)return;const duration=wave
  const [real,imag,slowReal,slowImag]=waveform.traces,show=$('lowpass').checked;curve(p,real,show?'#8dbbd6':'#126ca4',1);curve(p,imag,show?'#d8ad89':'#b64a16',1);
  if(show){curve(p,slowReal,'#126ca4',2.5);curve(p,slowImag,'#b64a16',2.5);}
  const t=frame*meta.frame_dt_s*1e3;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
-function drawSpectrum(){if(!meta||$('plots').hidden)return;const band=30,n=spectrum.length;let points=[];for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/1000;if(Math.abs(f)<=band)points.push([f,10*Math.log10(Math.max(spectrum[j],1e-20))]);}const max=points.length?Math.max(...points.map(v=>v[1])):-40;const ymax=Math.ceil(max/10)*10+5,ymin=ymax-75;const p=chart($('spectrum'),-band,band,ymin,ymax,'Frequency offset [kHz]','PSD [dB re 1 Hz⁻¹]');if(points.length)curve(p,points,'#18555c');drawPlasmaLine();}
-function drawPlasmaLine(){
+function spectrumPanel(id,scale,band,colour,range){
  if(!meta||$('plots').hidden)return;
- const n=spectrum.length,points=[],band=meta.plasma_band_mhz||2;let peak=-100;
- for(let j=0;j<n;j++){
-  const f=(j-n/2)/(n*meta.signal_dt_s)/1e6;
-  if(Math.abs(f)>band)continue;
-  const power=10*Math.log10(Math.max(spectrum[j],1e-20));
-  points.push([f,power]);peak=Math.max(peak,power);
- }
- const ymax=Math.ceil(peak/5)*5+5,ymin=ymax-80;
- const p=chart($('plasmaLine'),-band,band,ymin,ymax,'Frequency offset [MHz]','PSD [dB re 1 Hz⁻¹]');
- if(points.length)curve(p,points,'#762a83');
+ const n=spectrum.length,points=[];let peak=$('linearSpectrum').checked?0:-100;
+ for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/scale;if(Math.abs(f)>band)continue;const value=spectrumValue(spectrum[j]);points.push([f,value]);peak=Math.max(peak,value);if($('theory').checked&&theory.length===n)peak=Math.max(peak,spectrumValue(theory[j]));}
+ const linear=$('linearSpectrum').checked,ymax=linear?Math.max(peak*1.12,1e-6):Math.ceil(peak/5)*5+5,ymin=linear?0:ymax-range;
+ const p=chart($(id),-band,band,ymin,ymax,`Frequency offset [${scale===1000?'kHz':'MHz'}]`,linear?'PSD [10⁻⁶ Hz⁻¹]':'PSD [dB re 1 Hz⁻¹]');
+ if(points.length)curve(p,points,colour);drawTheory(p,scale,band);
 }
+function drawSpectrum(){spectrumPanel('spectrum',1000,30,'#18555c',75);drawPlasmaLine();}
+function drawPlasmaLine(){spectrumPanel('plasmaLine',1e6,meta?.plasma_band_mhz||2,'#762a83',80);}
 async function calculate(){
  if(!signal)return;const token=++pending;if(welch)welch.free();
- const n=Number($('fft').value);welch=new Welch(n,meta.signal_dt_s);spectrum=[];drawSpectrum();
+ const n=Number($('fft').value);welch=new Welch(n,meta.signal_dt_s);spectrum=[];theory=[];state.theoryReady=false;$('theoryStatus').textContent='Loading theory…';loadTheory(n,token);drawSpectrum();
  for(let j=0;j+n<=signal.length/2;j+=n/2){if(token!==pending)return;welch.add_window(signal.subarray(2*j,2*(j+n)));spectrum=welch.spectrum();state.segments=welch.segments();$('segments').textContent=`${state.segments} Hann windows`;
  $('specCaption').textContent=`Computed here from the full ${(meta.signal_samples*meta.signal_dt_s*1e3).toFixed(2)} ms record · Δf = ${(1/(n*meta.signal_dt_s)/1000).toFixed(2)} kHz · 50% overlap`;
  drawSpectrum();await new Promise(r=>setTimeout(r,100));}
@@ -106,6 +119,8 @@ $('restart').onclick=()=>{frame=16;running=true;$('play').textContent='Pause';$(
 $('scrub').oninput=()=>{frame=Number($('scrub').value);running=false;$('play').textContent='Play';$('playtime').textContent='Paused';};
 $('count').oninput=()=>{$('countLabel').textContent=$('count').value;};
  $('lowpass').onchange=drawSignal;
+ $('theory').onchange=drawSpectrum;
+ $('linearSpectrum').onchange=()=>{for(const id of ['spectrum','plasmaLine'])plotRenderers.get(id)?.reset();drawSpectrum();};
 $('contrast').oninput=()=>{$('contrastLabel').textContent=`${Number($('contrast').value).toFixed(1)}×`;};
  $('fft').onchange=calculate;$('recalculate').onclick=calculate;
 window.addEventListener('resize',()=>{drawSpectrum();drawSignal();});
@@ -138,7 +153,7 @@ function updateRunHelp(){
 async function loadRun(id){
  const run=runList.find(v=>v.id===id);if(!run)throw Error('Unknown simulation run');
  const token=++loadSerial,plotsWereOpen=!$('plots').hidden;++pending;
- state.ready=false;running=false;signal=null;waveform=null;spectrum=[];state.segments=0;document.body.classList.remove('has-recording');
+ state.ready=false;running=false;signal=null;waveform=null;spectrum=[];theory=[];activeRunId=run.id;state.theoryReady=false;state.segments=0;document.body.classList.remove('has-recording');
  for(const plot of plotRenderers.values())plot.reset();
  $('plots').hidden=true;$('plotsToggle').setAttribute('aria-expanded','false');
  $('clock').textContent='Loading…';$('segments').textContent='Waiting for data';
