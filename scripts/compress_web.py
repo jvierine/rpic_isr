@@ -46,6 +46,9 @@ m.update(positions_file=name,pool_per_species=50,potential_atlases=atlases,
          potential_decode_scale=scale,animation_particles=100,
          compression=dict(bytes=compressed,rmse=float(np.sqrt(np.mean(errors))),
                           max_absolute_error=maximum,units='kB Te / e'))
+for key in ('potential_file','preview_positions_file','preview_potential_file'):
+    m.pop(key,None)
+m['transport']='u16 same-particle xy/next-xy endpoints; scalar JPEG potential chunks; interleaved f32 signal'
 if m['source'].get('control'):
     m['scientific_download']='downloads/high512-spectrum.h5'
     m['capture_download']='downloads/high512-capture.h5'
