@@ -147,7 +147,7 @@ integrated power in |f|=2.7–3.4 MHz is 37.1 dB above the thermal control.
 The nonlinear spectrum's strongest bin in that band is about 3.22 MHz;
 do not label that late peak as the initial 3.0365 MHz eigenfrequency.
 The transient is not a stationary ISR spectrum or a model fit to observed
-photoelectrons. Web export and browser QA remain pending.
+photoelectrons.
 
 Web preparation: compact validated exports now exist locally at
 `web/public/data/ring-v1` and `ring-control-v1`, including native scalar JPEG
@@ -156,7 +156,18 @@ supports 1000 visible particles; frame interval is 29.1784 ns and the movie
 spans 119.5 microseconds. Source UI/catalog changes add the two choices and
 turn-on status, disable inappropriate equilibrium overlays, and distinguish
 the in-plane 2D3V geometry. Annotation/navigation/loading/potential/waveform/help
-tests passed. Data transfer to `/mnt/shovel/picisr/data` is still pending;
-do not deploy the catalog until both transfers finish. No public app files
-have been changed yet. Follow with public symlinks, app/index/catalog upload,
-live browser verification and screenshots before reporting deployment.
+tests passed. Both exports were transferred to `/mnt/shovel/picisr/data`,
+checked with checksum dry runs, and exposed through public symlinks. Public
+signal and first/last particle/potential chunks matched local SHA256 hashes.
+The app, index and catalog are deployed at `https://juha.no/picisr/?run=ring`
+and `?run=ring-control`. Browser checks verified both new runs, actual particles
+and potential, 20-microsecond turn-on status, clock/rulers, full 120-microsecond
+voltage, computed spectra, disabled inappropriate theory, drag zoom/reset,
+panel close and natural stop at the final frame. Screenshots are saved in
+`results/ring-pair-v1/ring-live.png` and `control-live.png`.
+
+Browser QA caught and fixed a missing FFT-menu option for the short records.
+The new defaults use 4096 samples (28.76 kHz bins, five overlapping windows);
+this short run cannot resolve a detailed ion-line shape. The ring/control
+spectrum is a time-average over the entire transient, including the baseline;
+the separate scientific comparison above uses a post-30-microsecond interval.

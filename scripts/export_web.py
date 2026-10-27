@@ -137,6 +137,6 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
         capture_sha256=hashlib.sha256(pathlib.Path(capture).read_bytes()).hexdigest(),
         spectrum_sha256=hashlib.sha256(pathlib.Path(spectrum).read_bytes()).hexdigest(),
     )
-    if ring: metadata['default_fft']=1024
+    if ring: metadata['default_fft']=4096
     (out / "metadata.json").write_text(json.dumps(metadata, indent=2)+"\n")
     print(json.dumps(metadata, indent=2))

@@ -75,6 +75,7 @@ function renderPlasma(){
  $('countLabel').textContent=$('count').value;
  $('clock').textContent=`t = ${(meta.burn_ms+frame*meta.frame_dt_s*1e3).toFixed(6)} ms`;
  if(meta.ring_experiment)$('clock').textContent+=meta.ring_fraction?` · ${frame*meta.frame_dt_s<meta.ring_turn_on_s?'thermal baseline':'ring on'} (turn-on ${(meta.ring_turn_on_s*1e6).toFixed(0)} µs)`:' · thermal control';
+ document.querySelector('#simulationTime .time-origin').textContent=meta.ring_experiment?(meta.ring_fraction?`${frame*meta.frame_dt_s<meta.ring_turn_on_s?'Thermal baseline':'Ring on'} · turn-on at 20 µs`:'Thermal control · no injection'):'Time after burn-in';
  const time=simulationClock(frame,meta.frame_dt_s,meta.omega_pe_rad_s);
  $('timeNs').textContent=time.nanoseconds.toFixed(1);$('timePeriods').textContent=time.plasmaPeriods.toFixed(2);
  $('scrub').value=frame;
@@ -242,6 +243,7 @@ async function loadRun(id){
  }
  if(signal.length!==meta.signal_samples*2)throw Error('Incomplete signal recording');prepareWaveform();
  for(const option of $('fft').options)option.disabled=Number(option.value)>meta.signal_samples;
+ if(!Array.from($('fft').options).some(o=>Number(o.value)===meta.default_fft))$('fft').add(new Option(meta.default_fft.toLocaleString(),String(meta.default_fft)),0);
  $('fft').value=String(meta.default_fft);$('play').textContent='Pause';$('playtime').textContent='Recorded time, slowed down';
  for(const control of ['run','play','restart','scrub','recalculate'])$(control).disabled=false;
  frame=16;running=true;state.ready=true;document.body.classList.add('has-recording');state.totalParticles=meta.particles_per_species*2;state.clipDurationUs=(meta.frames-1)*meta.frame_dt_s*1e6;
