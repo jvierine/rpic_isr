@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import {particlePoints,PotentialFrames} from './public/potential.js';
+// One tracked particle crosses a periodic boundary: use the short path.
+const data=new Uint16Array(2*2*50*4).fill(65535);
+data.set([32768,32768,33000,32768]);
+const m={frames:2,length_lambda_de:20};
+const points=particlePoints(data,m,.5,100,true,true);
+assert.equal(points.length,4);assert.equal(points[2],0);
+assert.ok(points[0]>.5&&points[0]<.51);
+assert.equal(particlePoints(data,m,.5,100,false,false).length,0);
+const meta={potential_atlases:['0','1','2','3'],potential_decode_scale:1,field_grid:2,frames:256};
+globalThis.fetch=async()=>({ok:true,blob:async()=>({size:10})});
+globalThis.createImageBitmap=async()=>({width:16,height:16,close(){}});
+globalThis.OffscreenCanvas=class{constructor(w,h){this.width=w;this.height=h;}getContext(){return{drawImage(){},getImageData(){return{data:new Uint8Array(16*16*4).fill(128)}}};}};
+const reader=new PotentialFrames(meta,new URL('https://example.test/metadata.json'));
+for(let i=0;i<4;i++)await reader.load(i);
+assert.equal(reader.cache.size,3);assert.ok(!reader.cache.has(0));
+assert.ok(reader.field(192).every(v=>Math.abs(v-1/255)<1e-7));
+reader.close();assert.equal(reader.cache.size,0);
+console.log('PASS: same-ID interpolation, scalar decoding, bounded three-chunk cache');

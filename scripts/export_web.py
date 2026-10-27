@@ -28,7 +28,16 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     assert phi.shape == (frames, source_grid, source_grid)
     assert all(np.isfinite(a).all() for a in (x, phi, raw))
     assert x.min() >= 0 and x.max() <= scales["length"] * (1 + 1e-6)
-    assert config["burn_ms"] >= 10
+    # The bounded packed run uses an explicit stationarity/settling protocol,
+    # not the older fixed 10 ms protocol. Never accept an arbitrary short burn.
+    control = source.get("control")
+    if config["burn_ms"] < 10:
+        assert control and control["thermostatted"]
+        assert control["activation_time_s"] >= .001
+        assert config["burn_ms"]*1e-3-control["activation_time_s"] >= .0005
+        history = sf["control_0/history"][:]
+        assert np.max(np.abs(history[:, 8])) < 1
+        assert np.any(history[:, 9] == 2)
     assert config["seed"] == json.loads(bytes(sf["config_json"][:]))["seed"]
     assert np.array_equal(raw[:, 0], sf["raw/0/real"][:])
     assert np.array_equal(raw[:, 1], sf["raw/0/imag"][:])

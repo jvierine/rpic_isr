@@ -9,7 +9,18 @@ run is in `/scratch/data/juha/rpic_isr/results/high512-2hour-8y3Ktw`
 stopped early, with diagnostics preserved, to shorten the target from 4 to 3 ms
 after initial production throughput measured about 5 ms/step rather than the
 3.7 ms/step short benchmark. The resolution and plasma parameters are unchanged.
-It is running, not a completed spectrum or a deployed viewer replacement.
+It completed with exit 0 in 6708.07 s (111.8 minutes), inside the two-hour
+budget. The finite capture, raw-signal match and control ledger passed checks.
+The recorded signal spans 3 ms; the movie contains 4096 frames covering its
+first 110.18 us. Final Te/Ti are 2002.14/1000.38 K. During recording the
+temperature changes were -0.02177%/-0.00160%. Raw energy changed +0.01743%
+(maximum excursion 0.04054%); maximum work-corrected numerical energy drift
+was 0.18149%. These are different quantities: the weak thermostat removed
+0.00246368 normalized energy units. It does not make this an energy-conserving
+solver. Early/late plasma-band power ratios are 0.7922/0.8297; a 3 ms
+thermostatted realization is not a converged equilibrium ISR spectrum.
+Checks are reproducible with `scripts/check_bounded_run.py` and
+`scripts/check_web_spectrum.py`; outputs remain HDF5.
 
 Matched 512²/8ppc/physical-O+ tests use seed 9100, 2,973 steps (about 10 us),
 no thermostat, and diagnostic stride 1000. These are short performance tests,

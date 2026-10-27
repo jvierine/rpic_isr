@@ -9,10 +9,35 @@ frames at 30 fps, with 30 seconds per density. It does not record wall-clock UI
 playback and does not upload to YouTube. Package the downloaded Annex-B stream
 with `bash scripts/package_video_preview.sh INPUT.h264 OUTPUT.mp4`.
 The description in `web/youtube-description.txt` distinguishes the current
-numerically heated high-density diagnostic from the newer running simulation.
+numerically heated high-density diagnostic from the newer completed simulation.
 Inspect the exact MP4 and get user preview approval before publication.
 
 Public route: https://juha.no/picisr/
+
+## Lightweight replay transport
+
+`scripts/compress_web.py` follows `export_web.py`. It leaves the original
+scientific HDF5 and original export unchanged and writes `metadata-lossy.json`.
+Scalar potential is quantized to 8 bits with one symmetric scale across time,
+then JPEG quality 95 in independently fetched 8x8-frame atlases. Native mesh
+nodes are retained; each frame starts at a DCT-block-aligned boundary. The
+viewer applies the colormap/contrast after decoding, not before compression.
+No compression is used for the voltage or spectral input.
+
+The high-resolution 512² run's potential shrinks from 134.22 MB to 13.45 MB;
+RMSE is 0.001002 kBTe/e (about 0.95% of its 97th-percentile display scale),
+maximum error 0.004666. The low run uses 4.45 MB of potential JPEGs. Only three
+decoded chunks are cached (12.58 MB high, 3.15 MB low). Arbitrary seeking
+requests the relevant chunk, not the preceding movie. In-flight requests are
+also capped at three.
+
+At each frame the export selects up to 50 visible actual particles per species,
+with their true next-frame endpoints, rather than joining different IDs as
+the subset changes. This costs 3.28 MB for 4096 frames and keeps ~100 dots
+visible instead of allowing a fixed initial set to disappear from the crop.
+The full high-run voltage is 0.892 MB and remains available for zoom/FFT.
+Original HDF5 downloads are separate from browser loading, on the data share.
+`node web/test_potential.mjs` checks the same-ID interpolation and bounded cache.
 
 The accepted longer low-density record has 4096 dense frames (348.42 us)
 and 16 ms voltage, with unchanged 10 ms burn-in. Native potential nodes are
@@ -22,11 +47,16 @@ recording temperature changes +0.45748%/+0.14532%. Early/late electron-band
 power ratios are 0.98701/1.02138; these checks do not establish equilibrium
 or spectral convergence. Wasm checks passed at 4096 frames, with 44 overlapping
 8192-point Hann windows and PSD integral 0.462093 vs raw power 0.463624.
-The original short data remains intact. The extended 512² high-density case
-is now running on GPU1 (10 ms burn + 16 ms record, 4096 dense frames).
-The completed 256² validation is preserved but not accepted (3.7624% energy
-excursion and unequal early/late plasma-band power); the high menu entry still
-selects the original short diagnostic run until the replacement passes.
+The original short data remains intact. The prior extended 512² job was stopped
+and superseded by the bounded packed run: 512², 8 ppc/species, 2,097,152 particles
+per species, two Bragg wavelengths, Te=2000 K and Ti=1000 K. It finished in
+111.8 minutes. Unthermostatted burn and stationarity gating preceded weak
+separate-temperature control and settling; actual recording begins at 1.51346
+ms. Its 3 ms signal and 4096 movie frames replace the old high diagnostic in
+the run catalog. Maximum work-corrected drift is 0.18149%, versus 0.04054%
+raw energy excursion; thermostat action and short-record spectral fluctuations
+still preclude an equilibrium/convergence claim. The completed 256² validation
+is preserved but not accepted (3.7624% energy excursion).
 
 The frontend adds a Rust/Wasm, zero-phase Gaussian FIR overlay on
 the full complex voltage: thick blue/orange are filtered Re/Im, thin pale
@@ -45,16 +75,17 @@ every-other-node spatial aliasing while retaining small downloads. The solver
 grid spacing, crop origin and extent are recorded in metadata and checked by
 the Wasm transport tests. Old raw HDF5 recordings remain unchanged.
 
-The high-density heating problem is not fixed by this display correction.
-Matched 256²/512², 8-ppc short pilots are being tested separately before a
-replacement 10-ms-burn/4-ms-record capture is accepted.
+The high-density heating problem was not fixed by the display correction.
+The completed bounded 512² run above supersedes the old diagnostic recording;
+its thermostat and work-corrected energy ledger are documented separately.
 
-The run selector retains the original density 10^10 m^-3 case and adds the
-10^11 m^-3 diagnostic recording (seed 8300). The latter is explicitly flagged:
+## Historical high-density diagnostic (preserved, no longer selected)
+
+The earlier run selector used a 10^11 m^-3 diagnostic recording (seed 8300):
 26.5735% maximum energy excursion, final Te 2802.1 K and Ti 1039.7 K; Te rises
 7.92% during its 4 ms record. Its narrow peaks near -3.0352/+3.0318 MHz must
 not be interpreted as an equilibrium/converged thermal plasma-line result.
-The original remains the default. Both are finite explicit-PIC realizations.
+It is no longer selected by the public catalog. Its files remain preserved.
 
 The interface uses a bone/light theme, retaining the seismic potential map.
 Every signal/spectrum plot connects Rustplotlib's standard Rust/Wasm viewport
