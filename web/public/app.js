@@ -1,4 +1,4 @@
-import init, {Replay, Welch, ScientificPlot, PlasmaView, ion_lowpass} from './pkg/picisr_web.js?v=cbeb2cff8ee2';
+import init, {Replay, Welch, ScientificPlot, PlasmaView, ion_lowpass, inset_legend} from './pkg/picisr_web.js?v=31d16ba49250';
 import {ProgressDownloads} from './loading.js?v=ebb138dbfd70';
 import {simulationClock} from './annotations.js?v=e0a325e6b590';
 import {bindPlotNavigation} from './navigation.js?v=dc0b1c501859';
@@ -62,6 +62,11 @@ function renderPlasma(){
  $('phiMinus').textContent=`−${v.toFixed(1)} mV`;$('phiPlus').textContent=`+${v.toFixed(1)} mV`;
 }
 const plotRenderers=new Map();
+function drawLegend(id){
+ const c=$(id);let legend=$(`${id}Legend`);
+ if(!legend){legend=document.createElement('canvas');legend.id=`${id}Legend`;legend.style.pointerEvents='none';legend.style.zIndex='1';legend.setAttribute('aria-label',id==='signal'?'Real: blue; Imaginary: brown':`PIC: ${id==='spectrum'?'teal':'purple'}; Theory: ochre`);c.parentElement.append(legend);}
+ const r=c.getBoundingClientRect();inset_legend(legend,r.width,r.height,Math.min(devicePixelRatio||1,2),id==='signal',$('theory').checked&&theory.length===spectrum.length,id==='plasmaLine');
+}
 function chart(c,xmin,xmax,ymin,ymax,xlabel,ylabel){
  if(!plotRenderers.has(c.id)){
   const overlay=$(`${c.id}Lines`),plot=new ScientificPlot(c,overlay);
@@ -95,14 +100,14 @@ function drawSignal(){if(!waveform||$('plots').hidden)return;const duration=wave
  if(waveform.cacheKey!==key){waveform.traces=[waveform.real,waveform.imag,waveform.slowReal,waveform.slowImag].map(v=>signalTrace(v,view[0]*duration,view[2]*duration,pixels,meta.signal_dt_s*1e3,meta.signal_first_s*1e3));waveform.cacheKey=key;}
  const [real,imag,slowReal,slowImag]=waveform.traces,show=$('lowpass').checked;curve(p,real,show?'#8dbbd6':'#126ca4',1);curve(p,imag,show?'#d8ad89':'#b64a16',1);
  if(show){curve(p,slowReal,'#126ca4',2.5);curve(p,slowImag,'#b64a16',2.5);}
- const t=frame*meta.frame_dt_s*1e3;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);}
+ const t=frame*meta.frame_dt_s*1e3;p.series(new Float64Array([t,-waveform.amplitude,t,waveform.amplitude]),.1,.4,.3,1,false);drawLegend('signal');}
 function spectrumPanel(id,scale,band,colour,range){
  if(!meta||$('plots').hidden)return;
  const n=spectrum.length,points=[];let peak=$('linearSpectrum').checked?0:-100;
  for(let j=0;j<n;j++){const f=(j-n/2)/(n*meta.signal_dt_s)/scale;if(Math.abs(f)>band)continue;const value=spectrumValue(spectrum[j]);points.push([f,value]);peak=Math.max(peak,value);if($('theory').checked&&theory.length===n)peak=Math.max(peak,spectrumValue(theory[j]));}
  const linear=$('linearSpectrum').checked,ymax=linear?Math.max(peak*1.12,1e-6):Math.ceil(peak/5)*5+5,ymin=linear?0:ymax-range;
  const p=chart($(id),-band,band,ymin,ymax,`Frequency offset [${scale===1000?'kHz':'MHz'}]`,linear?'PSD [10⁻⁶ Hz⁻¹]':'PSD [dB re 1 Hz⁻¹]');
- if(points.length)curve(p,points,colour);drawTheory(p,scale,band);
+ if(points.length)curve(p,points,colour);drawTheory(p,scale,band);drawLegend(id);
 }
 function drawSpectrum(){spectrumPanel('spectrum',1000,30,'#18555c',75);drawPlasmaLine();}
 function drawPlasmaLine(){spectrumPanel('plasmaLine',1e6,meta?.plasma_band_mhz||2,'#762a83',80);}
@@ -164,7 +169,7 @@ async function loadRun(id){
  if(potentialFrames){potentialFrames.close();potentialFrames=null;}
  downloads=makeDownloads();
  try{
- const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=30ebf8870a75',import.meta.url);
+ const wasmUrl=new URL('./pkg/picisr_web_bg.wasm?v=afa2bb4f46e0',import.meta.url);
  const metadataUrl=new URL(run.metadata,location.href);
  const response=await fetch(metadataUrl,{cache:'no-cache'});if(!response.ok)throw Error('Recording metadata is not available');meta=await response.json();
  const asset=name=>new URL(meta[name],metadataUrl);
