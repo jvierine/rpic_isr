@@ -60,6 +60,33 @@ verified, but enhanced spontaneous scattering power must still be measured;
 it cannot be inferred from overlap alone. This calculation describes the
 initial distribution, which may relax during the PIC preparation interval.
 
+## Growing-mode candidate (linear theory, not a PIC result)
+
+The user subsequently requested a growing mode. `scripts/find_unstable_ring.py`
+checks a gyrotropic phase-space ring proportional to
+exp[-(v_perp-v_ring)^2/(2 sigma_ring^2)] times a parallel Maxwellian.
+The radial sampling probability includes the v_perp Jacobian. This is a
+different, anisotropic test distribution, not the isotropic hot-tail run.
+Its physical motivation is Eliasson et al. (2016),
+doi:10.1088/0741-3335/58/9/095002.
+
+With the same density, magnetic field, radar wave number and 3-degree angle,
+a 10% ring with m_e v_ring^2/2 = 10 eV, sigma_ring/v_ring = 0.1 and parallel
+temperature 2000 K yields omega/(2 pi) = (3.036495 + 0.139378 i) MHz.
+Thus the predicted amplitude e-folding time is 1.142 microseconds. Core and
+ions retain 2000 and 1000 K. The ring energy parameter is NOT the mean total
+particle energy. No growing roots were found for the 1%, 3% or 5% cases in
+the limited tested grid; this is not a general stability proof.
+
+The solver recovers the isotropic Maxwellian susceptibility independently,
+and checks the growing root with 48/96/192 harmonics and 256/512/768 radial
+quadrature nodes. The ion response is the cold-ion MHz approximation.
+This candidate has not been implemented or verified in PIC. A subsequent
+experiment must introduce the ring after any core preparation, record from
+injection, resolve the microsecond exponential stage and saturation, and
+measure the loss of perpendicular particle energy alongside field growth.
+The currently running isotropic pair remains a separate control experiment.
+
 Run launch and validation helpers are `scripts/run_oblique_pair.sh` and
 `scripts/check_oblique.py`. The latter accepts two files only for a CPU/GPU
 regression, not for comparing physically different tail/control outputs.
