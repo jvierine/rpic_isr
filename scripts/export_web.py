@@ -33,7 +33,16 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     # The bounded packed run uses an explicit stationarity/settling protocol,
     # not the older fixed 10 ms protocol. Never accept an arbitrary short burn.
     control = source.get("control")
-    if config.get('bz_t', 0) != 0:
+    magnetic=float(np.linalg.norm([config.get('bx_t',0),config.get('by_t',0),config.get('bz_t',0)]))
+    ring=config.get('ring_energy_ev',0)>0
+    if ring:
+        assert config.get('core_thermostat_us',0)==0 and config['burn_ms']==0
+        d=sf['diagnostics/0'][:];p=sf['population_energy_0'][:]
+        injection=sf['ring_injection_time_work_0'][:]
+        assert injection.shape==(1,2) and np.isfinite(d).all()
+        assert abs(injection[0,0]-config['ring_turn_on_us']*1e-6)<=scales['dt_s']
+        assert np.max(abs((d[:,1]-p[:,-1]-d[0,1])/d[0,1]))<.01
+    elif magnetic != 0:
         assert not control, 'Magnetic replay currently requires an unthermostatted run'
         assert config['burn_ms'] >= .5
         d = sf['diagnostics/0'][:]
@@ -54,6 +63,8 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
     assert np.array_equal(raw[:, 1], sf["raw/0/imag"][:])
     diagnostics = sf["diagnostics/0"][:]
     energy = float(100 * np.max(np.abs(diagnostics[:, 1] / diagnostics[0, 1] - 1)))
+    raw_energy=energy
+    if ring: energy=float(100*np.max(abs((d[:,1]-p[:,-1]-d[0,1])/d[0,1])))
     # Crop, never decimate: retain native nodes around the fixed 10-lambda camera.
     # A power-of-two crop includes interpolation halo while limiting download size.
     dx = scales["length"] / config["cells"]
@@ -101,12 +112,18 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
         potential_crop_start_node=source.get("potential_start_node", 0)+start,
         length_lambda_de=scales["length"], lambda_de_m=scales["lambda_de"],
         particles_per_species=config["cells"]**2*config["ppc"],
-        frame_dt_s=scales["dt_s"]*8, burn_ms=config["burn_ms"],
+        frame_dt_s=scales["dt_s"]*source.get('frame_stride_steps',8), frame_stride_steps=source.get('frame_stride_steps',8), burn_ms=config["burn_ms"],
         signal_dt_s=scales["dt_s"]*stride, signal_first_s=half*scales["dt_s"],
         signal_samples=len(signal), phi_quant_scale=quant_scale,
         density_m3=config["density"], te_K=config["te"], ti_K=config["ti"],
         magnetic_field_z_t=config.get('bz_t',0),
-        electron_gyrofrequency_hz=abs(config.get('bz_t',0))*1.602176634e-19/(2*np.pi*9.1093837139e-31),
+        magnetic_field_x_t=config.get('bx_t',0),magnetic_field_y_t=config.get('by_t',0),magnetic_field_t=magnetic,
+        velocity_dimensions=source.get('velocity_dimensions',2),
+        ring_experiment=ring,ring_fraction=config.get('hot_fraction',0) if ring else 0,
+        ring_turn_on_s=config.get('ring_turn_on_us',0)*1e-6 if ring else None,
+        ring_energy_parameter_ev=config.get('ring_energy_ev',0),
+        raw_energy_excursion_percent=raw_energy,
+        electron_gyrofrequency_hz=magnetic*1.602176634e-19/(2*np.pi*9.1093837139e-31),
         ion_mass_amu=config["ion_mass_amu"], mass_ratio=scales["mass_ratio"],
         radar_mhz=config["radar_mhz"], k_bragg_rad_m=scales["k_bragg"],
         k_lambda_de=scales["k_bragg"]*scales["lambda_de"],
@@ -120,5 +137,6 @@ with h5py.File(capture) as f, h5py.File(spectrum) as sf:
         capture_sha256=hashlib.sha256(pathlib.Path(capture).read_bytes()).hexdigest(),
         spectrum_sha256=hashlib.sha256(pathlib.Path(spectrum).read_bytes()).hexdigest(),
     )
+    if ring: metadata['default_fft']=1024
     (out / "metadata.json").write_text(json.dumps(metadata, indent=2)+"\n")
     print(json.dumps(metadata, indent=2))

@@ -10,6 +10,11 @@ let theory=[],activeRunId='',theoryCatalog;
 let bernsteinLines=[];
 const theoryCache=new Map();
 async function loadTheory(n,token){
+ if(meta.ring_experiment){
+  bernsteinLines=[];theory=[];state.theoryReady=false;$('theory').disabled=true;
+  $('bernsteinControls').hidden=true;$('theoryStatus').textContent='Transient ring/control experiment: equilibrium theory is not shown';
+  drawSpectrum();return;
+ }
  bernsteinLines=[];$('bernsteinControls').hidden=!meta.magnetic_field_z_t;
  if(meta.magnetic_field_z_t){
   theory=[];state.theoryReady=false;$('theory').disabled=true;$('theoryStatus').textContent='Magnetized run: unmagnetized theory does not apply';
@@ -69,6 +74,7 @@ function renderPlasma(){
  state.frame=frame;state.shown=ne+ni;state.electrons=ne;state.ions=ni;
  $('countLabel').textContent=$('count').value;
  $('clock').textContent=`t = ${(meta.burn_ms+frame*meta.frame_dt_s*1e3).toFixed(6)} ms`;
+ if(meta.ring_experiment)$('clock').textContent+=meta.ring_fraction?` · ${frame*meta.frame_dt_s<meta.ring_turn_on_s?'thermal baseline':'ring on'} (turn-on ${(meta.ring_turn_on_s*1e6).toFixed(0)} µs)`:' · thermal control';
  const time=simulationClock(frame,meta.frame_dt_s,meta.omega_pe_rad_s);
  $('timeNs').textContent=time.nanoseconds.toFixed(1);$('timePeriods').textContent=time.plasmaPeriods.toFixed(2);
  $('scrub').value=frame;
@@ -174,6 +180,14 @@ function updateRunHelp(){
  for(const el of document.querySelectorAll('.burn-duration'))el.textContent=`${meta.burn_ms.toFixed(3)} ms`;
  $('controlProtocol').textContent=meta.source?.control?.thermostatted?'After an unthermostatted 1 ms minimum burn and stationarity checks, separate weak velocity controls target 2000 K electrons and 1000 K ions. Recording follows at least 0.5 ms settling. This thermostat can affect spectra; the stationarity gate is not proof of kinetic equilibrium.':'This run uses an unthermostatted fixed-duration burn-in; that duration alone is not proof of equilibrium.';
  $('frameCadence').textContent=`${(meta.frame_dt_s*1e9).toFixed(2)} ns (8 PIC steps)`;
+ if(meta.ring_experiment){
+  document.querySelector('.spectrum-card h2').textContent='Low-frequency spectrum';
+  document.querySelector('.plasma-line-card h2').textContent='Electron-frequency spectrum';
+  $('magneticParameters').textContent=`Uniform in-plane B = ${(meta.magnetic_field_t*1e6).toFixed(2)} μT; radar wavevector 3° from perpendicular. Electron gyrofrequency 1 MHz; plasma frequency 3 MHz. Two position and three velocity components evolve with the Boris mover.`;
+  $('controlProtocol').textContent=meta.ring_fraction?`At ${(meta.ring_turn_on_s*1e6).toFixed(0)} µs, ${(meta.ring_fraction*100).toFixed(0)}% of initially thermal electrons are converted once to a gyrotropic ring: mₑvᵣ²/2 = ${meta.ring_energy_parameter_ev} eV, radial width 0.1vᵣ, parallel temperature initially 2000 K. Positions and charge are unchanged. Injected energy is accounted for separately; no thermostat is applied. This is a growing and saturating transient, not a stationary thermal spectrum.`:'Matched thermal control: same initial plasma, magnetic field and duration, with no ring injection and no thermostat. The 20 µs baseline does not establish equilibrium.';
+  $('energyDrift').textContent=`${meta.max_energy_excursion_percent.toFixed(4)}% maximum numerical energy error after subtracting injected energy`;
+  $('frameCadence').textContent=`${(meta.frame_dt_s*1e9).toFixed(2)} ns (${meta.frame_stride_steps} PIC steps)`;
+ }
  if(meta.magnetic_field_z_t&&meta.late_early_voltage_variance_ratio) $('controlProtocol').textContent+=` This is a transient magnetic demonstration: the late-half scattered-voltage variance is ${(100*meta.late_early_voltage_variance_ratio).toFixed(0)}% of the early-half value. Its spectrum is not a stationary thermal-equilibrium estimate; peak frequencies and spectral amplitudes must be assessed separately.`;
  $('playbackScale').textContent=`${(20*meta.frame_dt_s*1e6).toFixed(2)} µs of plasma time`;
  $('recordLength').textContent=`${(meta.signal_samples*meta.signal_dt_s*1e3).toFixed(2)} ms`;

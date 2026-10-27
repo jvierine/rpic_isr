@@ -148,3 +148,15 @@ The nonlinear spectrum's strongest bin in that band is about 3.22 MHz;
 do not label that late peak as the initial 3.0365 MHz eigenfrequency.
 The transient is not a stationary ISR spectrum or a model fit to observed
 photoelectrons. Web export and browser QA remain pending.
+
+Web preparation: compact validated exports now exist locally at
+`web/public/data/ring-v1` and `ring-control-v1`, including native scalar JPEG
+potential, bounded particle chunks and uncompressed float32 voltage. Each
+supports 1000 visible particles; frame interval is 29.1784 ns and the movie
+spans 119.5 microseconds. Source UI/catalog changes add the two choices and
+turn-on status, disable inappropriate equilibrium overlays, and distinguish
+the in-plane 2D3V geometry. Annotation/navigation/loading/potential/waveform/help
+tests passed. Data transfer to `/mnt/shovel/picisr/data` is still pending;
+do not deploy the catalog until both transfers finish. No public app files
+have been changed yet. Follow with public symlinks, app/index/catalog upload,
+live browser verification and screenshots before reporting deployment.
