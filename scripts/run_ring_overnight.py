@@ -19,7 +19,9 @@ p=argparse.ArgumentParser()
 p.add_argument('binary',type=Path)
 p.add_argument('output',type=Path)
 p.add_argument('--hours',type=float,default=12)
+p.add_argument('--duration-ms',type=float,default=8)
 a=p.parse_args()
+assert a.duration_ms>0.02 and a.hours>0
 a.output.mkdir()
 sha=hashlib.sha256(a.binary.read_bytes()).hexdigest()
 assert sha=='f120fc249c52cfdb15667977bd310f773bd188092caf54b636979a68f3b98a00'
@@ -34,7 +36,7 @@ with h5py.File(manifest,'w') as f:
     f['complete']=np.zeros(len(fps),dtype='u1')
     f['paths']=np.full(len(fps),'',dtype=object).astype(h5py.string_dtype())
     f['energy_error_percent']=np.full(len(fps),np.nan)
-    f.attrs.update(duration_ms=8.,ring_fraction=.01,ring_turn_on_us=20.,
+    f.attrs.update(duration_ms=a.duration_ms,ring_fraction=.01,ring_turn_on_us=20.,
                    ring_energy_ev=10.,wall_budget_hours=a.hours,binary_sha256=sha)
 
 def worker(device):
@@ -42,8 +44,8 @@ def worker(device):
         with lock:
             if not order: return
             i=order[0]
-            # Reserve a conservative seven hours per new case at the upper densities.
-            if deadline-time.monotonic()<7*3600:
+            # Measured 8 ms cases need 5--6 h; reserve seven, scaled with duration.
+            if deadline-time.monotonic()<7*3600*a.duration_ms/8:
                 print(f'GPU {device}: insufficient overnight budget for another full case; pending points retained',flush=True)
                 return
             order.pop(0)
@@ -56,11 +58,11 @@ def worker(device):
              '--te','2000','--ti','1000','--bx-t','.000001869630096',
              '--by-t','.00003567491076','--hot-fraction','.01','--ring-energy-ev','10',
              '--ring-width','.1','--ring-turn-on-us','20','--core-thermostat-us','0',
-             '--dt','.01','--burn-ms','0','--duration-ms','8','--sample-us','.005',
+             '--dt','.01','--burn-ms','0','--duration-ms',str(a.duration_ms),'--sample-us','.005',
              '--window','1024','--diagnostic-stride','200','--seed','9501','--output',str(path)]
         env={k:v for k,v in os.environ.items() if not k.startswith('RPIC_WEB_')}
         env['RPIC_LIVE_PATH']=str(directory/'live.h5')
-        print(f'START GPU{device} fpe={fps[i]/1e6:.2f}MHz 1% ring 8ms',flush=True)
+        print(f'START GPU{device} fpe={fps[i]/1e6:.2f}MHz 1% ring {a.duration_ms:g}ms',flush=True)
         with (directory/'run.log').open('w') as log:
             result=subprocess.run(['timeout','--signal=TERM','--kill-after=5s',
                                    str(int(deadline-time.monotonic())),*cmd],
@@ -70,7 +72,7 @@ def worker(device):
         with h5py.File(path) as f:
             config=json.loads(bytes(f['config_json'][:]))
             if 'base' in config: config={**config.pop('base'),**config}
-            assert config['hot_fraction']==.01 and config['duration_ms']==8
+            assert config['hot_fraction']==.01 and config['duration_ms']==a.duration_ms
             assert np.isclose(config['density'],density)
             scales=json.loads(bytes(f['scales_json'][:]))
             for key in ['raw/0/real','raw/0/imag']:
