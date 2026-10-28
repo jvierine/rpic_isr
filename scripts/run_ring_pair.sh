@@ -13,7 +13,13 @@ run() {
  --core-thermostat-us 0 --dt .01 --burn-ms 0 --duration-ms .12 --sample-us .005 --window 1024 \
  --diagnostic-stride 200 --seed 9501 --output "$out/$name/spectrum.h5"
 }
-run ring 0 "$fraction" >"$out/ring.log" 2>&1 & a=$!
+run ring "${RPIC_RING_DEVICE:-0}" "$fraction" >"$out/ring.log" 2>&1 & a=$!
+if [[ ${RPIC_REUSE_CONTROL:-0} == 1 ]]; then
+ printf '%s\n' "$a" >"$out/launcher_pids"
+ set +e
+ wait "$a"; x=$?;printf '%s\n' "$x" >"$out/ring_exit"
+ exit "$x"
+fi
 run control 1 0 >"$out/control.log" 2>&1 & b=$!
 printf '%s\n' "$a" "$b" >"$out/launcher_pids"
 set +e
