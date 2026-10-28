@@ -4,7 +4,8 @@
     {"id": "low", "label": "nₑ = 10¹⁰ m⁻³", "metadata": "data/extended-low/metadata-lossy.json"},
     {"id": "high", "label": "nₑ = 10¹¹ m⁻³", "metadata": "data/submillion-high/metadata-lossy.json"},
     {"id": "bernstein", "label": "B = 35.72 μT · fce = 1 MHz", "metadata": "data/bernstein-long/metadata-lossy.json"},
-    {"id": "ring", "label": "Ring turns on at 20 µs", "metadata": "data/ring-v1/metadata-lossy.json"},
+    {"id": "ring", "label": "10% ring · turn-on at 20 µs", "metadata": "data/ring-v1/metadata-lossy.json"},
+    {"id": "ring-1pct", "label": "1% ring · turn-on at 20 µs", "metadata": "data/ring-1pct/metadata-lossy.json"},
     {"id": "ring-control", "label": "Ring experiment · thermal control", "metadata": "data/ring-control-v1/metadata-lossy.json"}
   ]
 }

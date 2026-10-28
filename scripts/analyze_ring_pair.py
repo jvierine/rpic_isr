@@ -1,15 +1,21 @@
 """Matched ring/control diagnostics; no peak normalization or forced growth fit."""
 import json
+import argparse
 from pathlib import Path
 import h5py
 import numpy as np
 from scipy.signal import welch
 
 base=Path(__file__).resolve().parents[1]/'results/ring-pair-v1'
-with h5py.File(base/'comparison.h5','w') as out:
+parser=argparse.ArgumentParser()
+parser.add_argument('--ring',type=Path,default=base/'ring/spectrum.h5')
+parser.add_argument('--control',type=Path,default=base/'control/spectrum.h5')
+parser.add_argument('--output',type=Path,default=base/'comparison.h5')
+args=parser.parse_args()
+with h5py.File(args.output,'w') as out:
  out.attrs['growth_fit_warning']='Total radar density-mode power, not isolated eigenmode; linear theory comparison is provisional.'
  for name in ['ring','control']:
-  with h5py.File(base/name/'spectrum.h5') as f:
+  with h5py.File(getattr(args,name)) as f:
    s=json.loads(bytes(f['scales_json'][:]));dt=s['dt_s']
    z=f['raw/0/real'][:]+1j*f['raw/0/imag'][:];t=np.arange(len(z))*dt
    d=f['diagnostics/0'][:];p=f['population_energy_0'][:];temps=f['parallel_perpendicular_temperatures_K_0'][:]

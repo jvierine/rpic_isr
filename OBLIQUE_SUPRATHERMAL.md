@@ -177,8 +177,24 @@ The user requested a tenfold reduction of the injected population, keeping the
 10 eV ring parameter and 20 microsecond turn-on unchanged. A matched pair was
 launched in `/scratch/data/juha/rpic_isr/results/ring-pair-1pct-v1`: ring fraction
 0.01 on GPU 0 and thermal control on GPU 1. All other parameters and the binary
-are unchanged from ring-pair-v1. These results are pending validation; reduced
-fraction does not guarantee a growing mode. The viewer now displays the magnetic
+are unchanged from ring-pair-v1. The 1% run completed in 304.571 seconds, exit 0.
+Finite capture/raw-voltage equality and injection timing checks passed; maximum
+work-corrected numerical energy excursion was 0.0046554%. The post-30-microsecond
+2.7–3.4 MHz band power is 4.290 dB above the original thermal control. The same
+20.5–23.5 microsecond growth fit has R-squared 0.015: it does not support the
+strong early exponential growth seen at 10%. These are single-realization
+comparisons, not a stability or convergence proof. The existing thermal control
+is reused; no further control runs are needed.
+
+The compact 1% export is deployed as `?run=ring-1pct`, preserving earlier runs.
+It contains 4096 frames and the full 120-microsecond voltage record. Browser
+checks verified particles/potential, spectra, zoom/reset, close, and natural
+end of playback. The viewer now displays the magnetic
 field direction and radar Bragg wavevector, including an out-of-plane symbol for
 the perpendicular magnetic run.
+
+The requested 0.1% run uses the same parameters and existing control, with
+fraction 0.001, on GPU 1 in `ring-0p1pct-v1`. Deployment awaits completion and
+the same checks. Neither the injection energy nor a positive band-power ratio
+alone is evidence of an exponentially growing mode.
 
