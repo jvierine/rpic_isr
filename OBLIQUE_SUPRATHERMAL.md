@@ -171,3 +171,14 @@ The new defaults use 4096 samples (28.76 kHz bins, five overlapping windows);
 this short run cannot resolve a detailed ion-line shape. The ring/control
 spectrum is a time-average over the entire transient, including the baseline;
 the separate scientific comparison above uses a post-30-microsecond interval.
+# Reduced ring population (1%)
+
+The user requested a tenfold reduction of the injected population, keeping the
+10 eV ring parameter and 20 microsecond turn-on unchanged. A matched pair was
+launched in `/scratch/data/juha/rpic_isr/results/ring-pair-1pct-v1`: ring fraction
+0.01 on GPU 0 and thermal control on GPU 1. All other parameters and the binary
+are unchanged from ring-pair-v1. These results are pending validation; reduced
+fraction does not guarantee a growing mode. The viewer now displays the magnetic
+field direction and radar Bragg wavevector, including an out-of-plane symbol for
+the perpendicular magnetic run.
+

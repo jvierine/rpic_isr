@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="A window into a two-dimensional particle-in-cell plasma: electrons, ions, electric potential and incoherent scatter.">
-<title>PIC ISR · Plasma in motion</title><link rel="stylesheet" href="style.css?v=3a171cdae2a8"><script>
+<title>PIC ISR · Plasma in motion</title><link rel="stylesheet" href="style.css?v=directions-v1"><script>
 window.MathJax = {
   tex: {inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']]},
   svg: {fontCache: 'global'}
@@ -13,6 +13,12 @@ window.MathJax = {
 <body>
 <canvas id="plasma" aria-label="Electrons and ions over the evolving electric potential"></canvas>
 <canvas id="particles" aria-hidden="true"></canvas>
+<div id="directions" class="simulation-annotation" aria-label="Magnetic field and radar Bragg wavevector directions">
+<svg width="170" height="150" viewBox="0 0 170 150" aria-hidden="true"><defs><marker id="directionHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/></marker></defs>
+<line x1="35" y1="110" x2="145" y2="110" stroke="currentColor" stroke-width="2.5" marker-end="url(#directionHead)"/>
+<line id="bDirection" x1="35" y1="110" x2="35" y2="30" stroke="currentColor" stroke-width="2.5" marker-end="url(#directionHead)"/>
+<g id="bNormal"><circle cx="35" cy="40" r="12" fill="none" stroke="currentColor" stroke-width="2"/><circle id="bOut" cx="35" cy="40" r="3" fill="currentColor"/><path id="bIn" d="M28 33L42 47M28 47L42 33" fill="none" stroke="currentColor" stroke-width="2"/></g>
+</svg><span id="bDirectionLabel">\(\vec{B}\)</span><span id="kDirectionLabel">\(\vec{k}_{\mathrm B}\)</span><span id="bDirectionNote"></span></div>
 <header><strong>PIC ISR</strong><select id="run" aria-label="Simulation run" disabled></select><span>10 × 10 λ<sub>De</sub></span><span id="clock" hidden>Loading…</span><button id="plotsToggle" aria-expanded="false">Signal / spectrum</button><button id="helpOpen">Help</button><button id="fullscreen">⛶</button></header>
 <div id="debyeScale" class="simulation-annotation" aria-label="One electron Debye length"><div class="scale-label">\(1\,\lambda_{\mathrm{De}}\)</div><div class="scale-ruler"></div></div>
 <div id="braggScale" class="simulation-annotation" aria-label="One tenth of a Bragg wavelength"><div class="scale-label">\(\lambda_{\mathrm B}/10\) <span class="bragg-value">(\(\lambda_{\mathrm B}=\)<span id="braggLengthCm"></span> cm)</span></div><div class="scale-ruler"></div></div>
@@ -77,5 +83,5 @@ window.MathJax = {
 
 <h3>Controls</h3><p><strong>Pause / Restart / time slider:</strong> inspect the recorded interval. <strong>Visible particles:</strong> change only the number of dots. <strong>Species:</strong> isolate electrons or ions. <strong>Colour contrast:</strong> change only the symmetric potential display range. Negative potential is blue, zero is light yellow and positive potential is red. Values beyond the displayed limits saturate in colour, not in the simulation. <strong>FFT window:</strong> trade frequency resolution against the number of available averages.</p>
 </dialog>
-<script type="module" src="app.js?v=ring-v2"></script>
+<script type="module" src="app.js?v=directions-v1"></script>
 </body></html>

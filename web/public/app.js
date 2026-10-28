@@ -161,6 +161,7 @@ const annotationObserver=new ResizeObserver(annotationLayout);annotationObserver
 const loadBinary=url=>downloads.load(url);
 function densityText(n){const exponent=Math.floor(Math.log10(n)),digits='⁰¹²³⁴⁵⁶⁷⁸⁹',mantissa=n/10**exponent;return `${Math.abs(mantissa-1)<1e-8?'':mantissa.toFixed(3)+' × '}10${String(exponent).split('').map(v=>digits[Number(v)]).join('')} m⁻³`;}
 function updateRunHelp(){
+ updateDirections();
  document.querySelector('.spectrum-card h2').textContent=meta.magnetic_field_z_t?'Low-frequency spectrum':'Ion-line spectrum';
  document.querySelector('.plasma-line-card h2').textContent=meta.magnetic_field_z_t?'Electron-frequency spectrum':'Plasma-line spectrum';
  const per=meta.particles_per_species,saved=meta.recorded_particles_per_species||4096;
@@ -193,6 +194,21 @@ function updateRunHelp(){
  $('playbackScale').textContent=`${(20*meta.frame_dt_s*1e6).toFixed(2)} µs of plasma time`;
  $('recordLength').textContent=`${(meta.signal_samples*meta.signal_dt_s*1e3).toFixed(2)} ms`;
 }
+function updateDirections(){
+ const bx=meta.magnetic_field_x_t||0,by=meta.magnetic_field_y_t||0,bz=meta.magnetic_field_z_t||0;
+ const inPlane=Math.hypot(bx,by)>0,hasB=inPlane||bz!==0;
+ $('bDirection').style.display=inPlane?'':'none';$('bNormal').style.display=!inPlane&&hasB?'':'none';
+ $('bDirectionLabel').style.display=hasB?'':'none';
+ $('bOut').style.display=bz>0?'':'none';$('bIn').style.display=bz<0?'':'none';
+ $('bDirectionNote').textContent=!hasB?'B = 0':!inPlane?(bz>0?'out of screen':'into screen'):'';
+ if(inPlane){
+  const rect=canvas.getBoundingClientRect(),x=bx*rect.width,y=-by*rect.height,n=Math.hypot(x,y);
+  const ex=35+80*x/n,ey=110+80*y/n;
+  $('bDirection').setAttribute('x2',ex);$('bDirection').setAttribute('y2',ey);
+  $('bDirectionLabel').style.left=`${ex+8}px`;$('bDirectionLabel').style.top=`${ey-15}px`;
+ }else{$('bDirectionLabel').style.left='58px';$('bDirectionLabel').style.top='22px';}
+}
+window.addEventListener('resize',()=>{if(meta)updateDirections();});
 async function loadRun(id){
  const run=runList.find(v=>v.id===id);if(!run)throw Error('Unknown simulation run');
  const token=++loadSerial,plotsWereOpen=!$('plots').hidden;++pending;

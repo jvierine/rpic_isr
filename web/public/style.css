@@ -23,3 +23,7 @@ dialog .equation{font:16px/1.5 system-ui,sans-serif;overflow-x:auto;padding:12px
 .scientific-plot canvas[id$="Lines"]{touch-action:none;cursor:grab}
 .scientific-plot canvas[id$="Lines"]:active{cursor:grabbing}
 #plotsClose{position:absolute;right:5px;top:1px;z-index:3;font-size:20px;line-height:1;padding:1px 6px;background:transparent;border:0}
+#directions{position:absolute;right:18px;top:80px;width:170px;height:150px;color:#344b43;pointer-events:none}
+#directions span{position:absolute;white-space:nowrap}
+#kDirectionLabel{left:122px;top:116px}
+#bDirectionNote{left:5px;top:2px;font-size:12px}

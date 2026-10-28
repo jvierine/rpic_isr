@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Record 20 us thermal baseline then 100 us after one-time ring injection.
 set -euo pipefail
-binary=${1:?binary};out=${2:?new directory};mkdir "$out"
+binary=${1:?binary};out=${2:?new directory};fraction=${3:-.1};mkdir "$out"
 run() {
  local name=$1 device=$2 fraction=$3
  mkdir "$out/$name"
@@ -13,7 +13,7 @@ run() {
  --core-thermostat-us 0 --dt .01 --burn-ms 0 --duration-ms .12 --sample-us .005 --window 1024 \
  --diagnostic-stride 200 --seed 9501 --output "$out/$name/spectrum.h5"
 }
-run ring 0 .1 >"$out/ring.log" 2>&1 & a=$!
+run ring 0 "$fraction" >"$out/ring.log" 2>&1 & a=$!
 run control 1 0 >"$out/control.log" 2>&1 & b=$!
 printf '%s\n' "$a" "$b" >"$out/launcher_pids"
 set +e
