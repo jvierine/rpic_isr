@@ -18,12 +18,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument('binary', type=Path)
 parser.add_argument('output', type=Path)
 parser.add_argument('--results', type=Path, required=True)
+parser.add_argument('--duration-ms', type=float, default=.12)
+parser.add_argument('--frequencies-mhz', type=float, nargs='+')
+parser.add_argument('--ring-fraction', type=float, default=.01)
 args = parser.parse_args()
+assert args.duration_ms >= .12
+assert 0 < args.ring_fraction < 1
 args.output.mkdir()  # Deliberately refuses to overwrite a campaign.
 deadline = time.monotonic() + 6900
 expected = 'f120fc249c52cfdb15667977bd310f773bd188092caf54b636979a68f3b98a00'
 assert hashlib.sha256(args.binary.read_bytes()).hexdigest() == expected
-fps = np.arange(2400, 3401, 50) * 1e3
+fps = (np.array(sorted(set(args.frequencies_mhz)))*1e6 if args.frequencies_mhz
+       else np.arange(2400, 3401, 50)*1e3)
 densities = 111639834702.32187 * (fps / 3e6)**2
 manifest = args.output / 'manifest.h5'
 with h5py.File(manifest, 'w') as f:
@@ -32,14 +38,15 @@ with h5py.File(manifest, 'w') as f:
     f['complete'] = np.zeros((len(fps), 2), dtype='u1')
     f['work_corrected_energy_error_percent'] = np.full((len(fps), 2), np.nan)
     f['paths'] = np.full((len(fps), 2), '', dtype=object).astype(h5py.string_dtype())
-    f.attrs['cases'] = 'ring 1 percent, thermal control'
+    f.attrs['cases'] = f'ring {100*args.ring_fraction:g} percent, thermal control'
     f.attrs['binary_sha256'] = expected
     f.attrs['ring_energy_parameter_eV'] = 10.
-    f.attrs['ring_fraction'] = .01
+    f.attrs['ring_fraction'] = args.ring_fraction
     f.attrs['gyrofrequency_hz'] = 1e6
     f.attrs['geometry'] = 'independent homogeneous 2D3V boxes; 3 degrees from k perpendicular B'
     f.attrs['interpretation'] = 'density scan, not temporal density ramp or altitude profile'
     f.attrs['seed'] = 9501
+    f.attrs['duration_ms'] = args.duration_ms
 
 def validate(path, density, fraction):
     with h5py.File(path) as f:
@@ -50,6 +57,7 @@ def validate(path, density, fraction):
         assert np.isclose(c['density'], density, rtol=1e-12)
         assert c['hot_fraction'] == fraction and c['ring_energy_ev'] == 10
         assert c['te'] == 2000 and c['ti'] == 1000 and c['seed'] == 9501
+        assert np.isclose(c['duration_ms'], args.duration_ms)
         assert c['ring_turn_on_us'] == 20 and c['core_thermostat_us'] == 0
         assert c['bx_t'] == .000001869630096 and c['by_t'] == .00003567491076
         for key in ['raw/0/real', 'raw/0/imag']:
@@ -77,7 +85,7 @@ def run(case, device, fraction, density, directory):
         '--hot-fraction', str(fraction), '--ring-energy-ev', '10',
         '--ring-width', '.1', '--ring-turn-on-us', '20',
         '--core-thermostat-us', '0', '--dt', '.01', '--burn-ms', '0',
-        '--duration-ms', '.12', '--sample-us', '.005', '--window', '1024',
+        '--duration-ms', str(args.duration_ms), '--sample-us', '.005', '--window', '1024',
         '--diagnostic-stride', '200', '--seed', '9501', '--output', str(path)]
     env = {k:v for k,v in os.environ.items() if not k.startswith('RPIC_WEB_')}
     env['RPIC_LIVE_PATH'] = str(directory / f'{case}-live.h5')
@@ -93,7 +101,7 @@ order = sorted(range(len(fps)), key=lambda i: abs(fps[i]-2.8e6))
 for i in order:
     fp = fps[i]
     print(f'Start fpe={fp/1e6:.2f} MHz, density={densities[i]:.9g}', flush=True)
-    if fp == 3e6:
+    if fp == 3e6 and args.duration_ms == .12 and args.ring_fraction == .01:
         paths = [args.results/'ring-pair-1pct-v1/ring/spectrum.h5',
                  args.results/'ring-pair-v1/control/spectrum.h5']
         results = [(p, validate(p, densities[i], fraction))
@@ -103,7 +111,7 @@ for i in order:
         directory.mkdir()
         with ThreadPoolExecutor(max_workers=2) as pool:
             jobs = [pool.submit(run, case, dev, fraction, densities[i], directory)
-                    for case, dev, fraction in [('ring', 0, .01), ('control', 1, 0.)]]
+                    for case, dev, fraction in [('ring', 0, args.ring_fraction), ('control', 1, 0.)]]
             results = [j.result() for j in jobs]
     with h5py.File(manifest, 'r+') as f:
         for j, (path, error) in enumerate(results):
@@ -111,4 +119,4 @@ for i in order:
             f['work_corrected_energy_error_percent'][i, j] = error
             f['complete'][i, j] = 1
     print(f'PASS {fp/1e6:.2f} MHz; numerical energy errors {[r[1] for r in results]} percent', flush=True)
-print('COMPLETE: 21 density points, both cases validated', flush=True)
+print(f'COMPLETE: {len(fps)} density points, both cases validated', flush=True)
