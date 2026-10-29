@@ -34,3 +34,35 @@ Campaign has a 6900 second internal budget and 7190 second external timeout plus
 verification; a single realization per density is not a convergence result.
 
 Binary SHA256: f120fc249c52cfdb15667977bd310f773bd188092caf54b636979a68f3b98a00.
+
+## Completed 1 ms, 1% ring sweep (29 October 2026)
+
+All 21 independent density points from 2.50 to 3.50 MHz in 50 kHz steps
+completed within the overnight wall budget. The user reduced the requested
+8 ms duration to 1 ms; the superseded 8 ms and 0.1% runs were deliberately
+stopped and their diagnostics retained. No new thermal controls were run.
+
+Remote raw data: `/scratch/data/juha/rpic_isr/results/ring-1pct-1ms-sweep-v1`.
+`scripts/analyze_long_sweep.py` independently checked full finite raw records,
+1 ms duration, 1% fraction, fixed field, density, particle count, temperatures,
+seed, and one-time injection at 20 microseconds. The maximum injection-corrected
+numerical energy excursion is 0.118004%. Final raw total energy increases by
+25.999–26.064%; the injected ring supplies 25.944–25.964% of initial energy.
+These are different quantities: the injected energy is not numerical heating.
+Final population-averaged electron temperatures are 2780.9–2783.4 K, including
+the energetic ring, and ion temperatures are 1000.87–1002.38 K.
+
+The derived HDF5 and native Rustplotlib figure separate 30–1000, 30–250,
+250–600 and 600–1000 microsecond PSD estimates on identical absolute scales.
+All use 20 microsecond Hann segments with 50% overlap (50 kHz bin spacing).
+The late/early integrated power ratio above |f|=2 MHz within the plotted
+frequency range varies from 0.523 to 10.943 across densities. This is an
+evolving, single-seed experiment, not evidence of stationary or converged ISR.
+
+The separate enhancement figure uses ONLY matched 30–120 microsecond windows
+against the existing thermal controls. Controls exist through 3.40 MHz, so
+this comparison contains 19 density points, not all 21. There is no matched
+late-time or full-1-ms thermal baseline. No extrapolated control is inserted.
+
+Local derived products: `results/ring-1pct-1ms-sweep-v1/analysis.h5`,
+`analysis-matched.h5`, `spectra.png/pdf`, and `early-enhancement.png/pdf`.
